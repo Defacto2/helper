@@ -11,10 +11,8 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"reflect"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -228,105 +226,6 @@ func sequences(p []byte) encoding.Encoding {
 		return charmap.CodePage437
 	}
 	return charmap.ISO8859_1
-}
-
-// FixSceneOrg returns a working URL if the provided rawURL is a known,
-// broken link to a scene.org file. Otherwise it returns the original URL.
-func FixSceneOrg(rawURL string) string {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return rawURL
-	}
-	if u.Host == "scene.org" && u.Path == "/file.php" {
-		return rawURL
-	}
-	if u.Host == "files.scene.org" {
-		p := u.Path
-		x := strings.Split(p, "/")
-		if len(x) > 0 && x[1] == "view" {
-			x[1] = "get"
-			newURL := &url.URL{
-				Scheme: "https",
-				Host:   "files.scene.org",
-				Path:   strings.Join(x, "/"),
-			}
-			return newURL.String()
-		}
-	}
-	return rawURL
-}
-
-// DownloadResponse contains the details of a downloaded file.
-type DownloadResponse struct {
-	ContentLength string // ContentLength is the size of the file in bytes.
-	ContentType   string // ContentType is the MIME type of the file.
-	LastModified  string // LastModified is the last modified date of the file.
-	Path          string // Path is the path to the downloaded file.
-}
-
-// GetFile downloads a file from a remote URL and saves it to the default temp directory.
-// It returns the path to the downloaded file.
-func GetFile(url string) (DownloadResponse, error) {
-	url = FixSceneOrg(url)
-
-	// Get the remote file
-	client := http.Client{
-		Timeout: Timeout,
-	}
-	ctx := context.Background()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return DownloadResponse{}, fmt.Errorf("http.NewRequestWithContext: %w", err)
-	}
-	req.Header.Set("User-Agent", UserAgent)
-	res, err := client.Do(req)
-	if err != nil {
-		return DownloadResponse{}, fmt.Errorf("client.Do: %w", err)
-	}
-	defer res.Body.Close()
-
-	dlr := DownloadResponse{
-		ContentLength: res.Header.Get("Content-Length"),
-		ContentType:   res.Header.Get("Content-Type"),
-		LastModified:  res.Header.Get("Last-Modified"),
-	}
-	// Create the file in the default temp directory
-	tmpFile, err := os.CreateTemp("", "downloadfile-*")
-	if err != nil {
-		return DownloadResponse{}, fmt.Errorf("os.CreateTemp: %w", err)
-	}
-	defer tmpFile.Close()
-
-	// Write the body to file
-	if _, err := io.Copy(tmpFile, res.Body); err != nil {
-		defer os.Remove(tmpFile.Name())
-		return DownloadResponse{}, fmt.Errorf("io.Copy: %w", err)
-	}
-	dlr.Path = tmpFile.Name()
-	return dlr, nil
-}
-
-// GetStat returns the content length of a remote URL.
-// It returns an error if the URL is invalid or the request fails.
-// The content length is -1 if it is unknown.
-func GetStat(url string) (int64, error) {
-	const unknown = -1
-	url = FixSceneOrg(url)
-	client := http.Client{
-		Timeout: Timeout,
-	}
-	ctx := context.Background()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return unknown, fmt.Errorf("http.NewRequestWithContext: %w", err)
-	}
-	req.Header.Set("User-Agent", UserAgent)
-	res, err := client.Do(req)
-	if err != nil {
-		return unknown, fmt.Errorf("client.Do: %w", err)
-	}
-	defer res.Body.Close()
-	return res.ContentLength, nil
 }
 
 // Latency returns the stored, current local time.
