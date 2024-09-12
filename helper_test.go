@@ -3,6 +3,7 @@ package helper_test
 import (
 	"bytes"
 	"embed"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -284,4 +285,15 @@ func TestBools(t *testing.T) {
 	// assert.True(t, ext.IsAudio("song.wav"))
 	// assert.True(t, ext.IsTune("song.mod"))
 	// assert.True(t, ext.IsVideo("cat.divx"))
+}
+
+func TestDetermineFile(t *testing.T) {
+	t.Parallel()
+
+	r, err := os.Open("testdata/INFINITY.NFO")
+	require.NoError(t, err)
+	defer r.Close()
+
+	e := helper.Determine(r)
+	assert.Equal(t, charmap.CodePage437, e)
 }

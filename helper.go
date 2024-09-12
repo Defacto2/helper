@@ -147,21 +147,6 @@ func Determine(reader io.Reader) encoding.Encoding {
 	if err != nil {
 		return nil
 	}
-	// Check for Unicode multi-byte characters
-	// If an unknown rune is encountered then assume the encoding is
-	// using a legacy 8-bit code page encoding, such as CP-437.
-	multibyte := false
-	for _, r := range bytes.Runes(p) {
-		if utf8.RuneLen(r) > 1 {
-			if r == unknownRune {
-				break
-			}
-			multibyte = true
-		}
-	}
-	if multibyte {
-		return unicode.UTF8
-	}
 	for _, char := range p {
 		switch {
 		case char == escape:
@@ -189,7 +174,29 @@ func Determine(reader io.Reader) encoding.Encoding {
 			return charmap.CodePage437
 		}
 	}
-	return sequences(p)
+	// Check for common CP-437 sequences and characters.
+	// This should be done before checking for multi-byte characters, which could be
+	// misinterpreted as UTF-8 runes.
+	if s := sequences(p); s != nil {
+		return s
+	}
+	// Check for Unicode multi-byte characters
+	// If an unknown rune is encountered then assume the encoding is
+	// using a legacy 8-bit code page encoding, such as CP-437.
+	multibyte := false
+	for _, r := range bytes.Runes(p) {
+		fmt.Println(r, utf8.RuneLen(r), string(r))
+		if utf8.RuneLen(r) > 1 {
+			if r == unknownRune {
+				break
+			}
+			multibyte = true
+		}
+	}
+	if multibyte {
+		return unicode.UTF8
+	}
+	return charmap.ISO8859_1
 }
 
 // sequences returns the encoding based on the presence of common CP-437 or ISO-8859-1 character sequences.
@@ -225,7 +232,7 @@ func sequences(p []byte) encoding.Encoding {
 	if bytes.Contains(p, guillemets) {
 		return charmap.CodePage437
 	}
-	return charmap.ISO8859_1
+	return nil
 }
 
 // Latency returns the stored, current local time.
