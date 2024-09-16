@@ -185,7 +185,6 @@ func Determine(reader io.Reader) encoding.Encoding {
 	// using a legacy 8-bit code page encoding, such as CP-437.
 	multibyte := false
 	for _, r := range bytes.Runes(p) {
-		fmt.Println(r, utf8.RuneLen(r), string(r))
 		if utf8.RuneLen(r) > 1 {
 			if r == unknownRune {
 				break
@@ -211,6 +210,9 @@ func sequences(p []byte) encoding.Encoding {
 		mediumShade    = 0xb1
 		fullBlock      = 0xdb
 		interpunct     = 0xfa
+		shadeLight     = 0xb0
+		shadeMedium    = 0xb1
+		shadeDark      = 0xb2
 	)
 	chars := []byte{
 		lowerHalfBlock,
@@ -220,6 +222,9 @@ func sequences(p []byte) encoding.Encoding {
 		mediumShade,
 		fullBlock,
 		interpunct,
+		shadeLight,
+		shadeMedium,
+		shadeDark,
 	}
 	for _, char := range chars {
 		const count = 4
