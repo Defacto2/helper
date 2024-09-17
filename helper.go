@@ -203,23 +203,21 @@ func Determine(reader io.Reader) encoding.Encoding {
 // unique to the CP-437 encoding.
 func sequences(p []byte) encoding.Encoding {
 	const (
-		lowerHalfBlock = 0xdc
-		upperHalfBlock = 0xdf
-		doubleHorizBar = 0xcd
-		singleHorizBar = 0xc4
-		mediumShade    = 0xb1
-		fullBlock      = 0xdb
-		interpunct     = 0xfa
-		shadeLight     = 0xb0
-		shadeMedium    = 0xb1
-		shadeDark      = 0xb2
+		shadeLight     = 0xb0 // ░
+		shadeMedium    = 0xb1 // ▒
+		shadeDark      = 0xb2 // ▓
+		singleHorizBar = 0xc4 // ─
+		doubleHorizBar = 0xcd // ═
+		fullBlock      = 0xdb // █
+		lowerHalfBlock = 0xdc // ▄
+		upperHalfBlock = 0xdf // ▀
+		interpunct     = 0xfa // ·
 	)
 	chars := []byte{
 		lowerHalfBlock,
 		upperHalfBlock,
 		doubleHorizBar,
 		singleHorizBar,
-		mediumShade,
 		fullBlock,
 		interpunct,
 		shadeLight,
@@ -235,6 +233,11 @@ func sequences(p []byte) encoding.Encoding {
 	}
 	guillemets := []byte{0xae, 0xaf} // «»
 	if bytes.Contains(p, guillemets) {
+		return charmap.CodePage437
+	}
+	const bulletpoint = 0xf9 // ••
+	bulletpoints := []byte{bulletpoint, bulletpoint}
+	if bytes.Contains(p, bulletpoints) {
 		return charmap.CodePage437
 	}
 	return nil
