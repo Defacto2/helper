@@ -31,8 +31,11 @@ const (
 )
 
 // ByteCount formats b as in a compact, human-readable unit of measure.
+//
+// source, [yourbasic]
+//
+// [yourbasic]: https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
 func ByteCount(b int64) string {
-	// source: https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
 	const unit = 1024
 	if b < unit {
 		return fmt.Sprintf("%d%s", b, strings.Repeat("B", 1))
@@ -111,17 +114,6 @@ func CfUUID(cfid string) (string, error) {
 	return newid, nil
 }
 
-// CFToUUID formats a 31 character, Coldfusion Universally Unique Identifier
-// to a standard, 32 character, Universally Unique Identifier.
-// func CFToUUID(cfid string) string {
-// 	const require = 35
-// 	if len(cfid) != require {
-// 		return cfid
-// 	}
-// 	const index = 23
-// 	return cfid[:index] + "-" + cfid[index:]
-// }
-
 // DeleteDupe removes duplicate strings from a slice.
 // The returned slice is sorted and compacted.
 func DeleteDupe(s ...string) []string {
@@ -138,9 +130,10 @@ func DeleteDupe(s ...string) []string {
 }
 
 // Deobfuscate the obfuscated string, or return the original string.
+// This function is a port of a CFWheels framework [function] programmed in ColdFusion (CFML).
+//
+// [function]: https://github.com/cfwheels/cfwheels/blob/cf8e6da4b9a216b642862e7205345dd5fca34b54/wheels/global/misc.cfm#L508
 func DeObfuscate(s string) string {
-	// This function is a port of a CFWheels framework function programmed in ColdFusion (CFML).
-	// See: https://github.com/cfwheels/cfwheels/blob/cf8e6da4b9a216b642862e7205345dd5fca34b54/wheels/global/misc.cfm#L508
 	const checksum, decimal = 2, 10
 	if len(s) < checksum {
 		return s
@@ -237,8 +230,9 @@ func ObfuscateID(key int64) string {
 }
 
 // Obfuscate a numeric string to insecurely hide database primary key values when passed along a URL.
-// This function is a port of a CFWheels framework function programmed in ColdFusion (CFML).
-// https://github.com/cfwheels/cfwheels/blob/cf8e6da4b9a216b642862e7205345dd5fca34b54/wheels/global/misc.cfm#L483
+// This function is a port of a CFWheels framework [function] programmed in ColdFusion (CFML).
+//
+// [function]: https://github.com/cfwheels/cfwheels/blob/cf8e6da4b9a216b642862e7205345dd5fca34b54/wheels/global/misc.cfm#L483
 func Obfuscate(s string) string {
 	i, err := strconv.Atoi(s)
 	if err != nil {
@@ -315,9 +309,11 @@ func Released(s string) (int16, int16, int16) {
 }
 
 // ReverseInt reverses an integer.
+//
+// credit, [Wade73]
+//
+// [Wade73]: http://stackoverflow.com/questions/35972561/reverse-int-golang
 func ReverseInt(i int) (int, error) {
-	// credit: Wade73
-	// http://stackoverflow.com/questions/35972561/reverse-int-golang
 	itoa, str := strconv.Itoa(i), ""
 	for x := len(itoa); x > 0; x-- {
 		str += string(itoa[x-1])

@@ -253,7 +253,10 @@ func Latency() *time.Time {
 }
 
 // LocalIPs returns a list of local IP addresses.
-// credit: https://gosamples.dev/local-ip-address/
+//
+// credit, [gosamples]
+//
+// [gosamples]: https://gosamples.dev/local-ip-address
 func LocalIPs() ([]net.IP, error) {
 	var ips []net.IP
 	addresses, err := net.InterfaceAddrs()

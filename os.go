@@ -35,6 +35,7 @@ type Extension struct {
 	Count int64  // Count is the number of files with the extension.
 }
 
+// CountExts returns the file extensions and the number of files in the given directory.
 func CountExts(dir string) ([]Extension, error) {
 	exts := make(map[string]int64)
 	files, err := os.ReadDir(dir)
