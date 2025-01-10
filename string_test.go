@@ -17,6 +17,18 @@ const (
 	cfid = "00000000-0000-0000-0000000000000000"  // coldfusion uuid example
 )
 
+func ExampleSplitAsSpaces() {
+	fmt.Println(helper.SplitAsSpaces("TheQuickBrownFox"))
+	// Output:
+	// The Quick Brown Fox
+}
+
+func ExampleSearchTerm() {
+	fmt.Println(helper.SearchTerm("quick,brown,fox"))
+	// Output:
+	// [quick brown fox]
+}
+
 func ExampleByteCount() {
 	fmt.Println(helper.ByteCount(0))
 	fmt.Println(helper.ByteCount(1024))
@@ -120,11 +132,18 @@ func ExampleSlug() {
 }
 
 func ExampleTimeDistance() {
+	oneMinuteAgo := time.Now().Add(-15 * time.Second)
+	fmt.Println(helper.TimeDistance(oneMinuteAgo, time.Now(), true))
+	fmt.Println(helper.TimeDistance(oneMinuteAgo, time.Now(), false))
+
 	oneHourAgo := time.Now().Add(-time.Hour)
-	oneHourAhead := time.Now().Add(time.Hour)
 	fmt.Println(helper.TimeDistance(oneHourAgo, time.Now(), true))
+
+	oneHourAhead := time.Now().Add(time.Hour)
 	fmt.Println(helper.TimeDistance(oneHourAgo, oneHourAhead, true))
 	// Output:
+	// less than 20 seconds
+	// less than a minute
 	// about 1 hour
 	// about 2 hours
 }
@@ -156,8 +175,12 @@ func ExampleTrimRoundBraket() {
 
 func ExampleYears() {
 	fmt.Println(helper.Years(1990, 2000))
+	fmt.Println(helper.Years(1990, 1991))
+	fmt.Println(helper.Years(1990, 1990))
 	// Output:
 	// the years 1990 - 2000
+	// the years 1990 and 1991
+	// the year 1990
 }
 
 func ExampleDeObfuscate() {

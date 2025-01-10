@@ -324,7 +324,7 @@ func LocalHostPing(uri string, proto string, port int) (int, int64, error) {
 }
 
 // TimeDistance describes the difference between two time values.
-// The seconds parameter determines if the string should include seconds.
+// The seconds parameter determines if the string should handle less than a minute values.
 func TimeDistance(from, to time.Time, seconds bool) string {
 	// This function is a port of a CFWheels framework function programmed in ColdFusion (CFML).
 	// https://github.com/cfwheels/cfwheels/blob/cf8e6da4b9a216b642862e7205345dd5fca34b54/wheels/global/misc.cfm#L112

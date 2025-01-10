@@ -1,6 +1,7 @@
 package helper_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,41 @@ import (
 )
 
 const testDataFileCount = 3
+
+func ExampleCountExts() {
+	dir, _ := filepath.Abs("testdata")
+	counts, _ := helper.CountExts(dir)
+	fmt.Printf("%v", counts)
+	// Output: [{.txt 1} {.bmp 1} {.doc 1}]
+}
+
+func ExampleLines() {
+	name, _ := filepath.Abs(filepath.Join("testdata", "PKZ80A1.TXT"))
+	lines, _ := helper.Lines(name)
+	fmt.Printf("%v", lines)
+	// Output: 175
+}
+
+func ExampleFiles() {
+	dir, _ := filepath.Abs("testdata")
+	files, _ := helper.Files(dir)
+	fmt.Printf("%v", files)
+	// Output: [PKZ80A1.TXT TEST.BMP TEST.DOC]
+}
+
+func ExampleDiskUsage() {
+	dir, _ := filepath.Abs("testdata")
+	du, _ := helper.DiskUsage(dir)
+	fmt.Printf("%v", du)
+	// Output: 755105
+}
+
+func ExampleCount() {
+	dir, _ := filepath.Abs("testdata")
+	count, _ := helper.Count(dir)
+	fmt.Printf("%v", count)
+	// Output: 3
+}
 
 func TestCount(t *testing.T) {
 	dir, err := filepath.Abs("testdata")
