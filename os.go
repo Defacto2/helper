@@ -60,6 +60,9 @@ func CountExts(dir string) ([]Extension, error) {
 		extensions = append(extensions, Extension{Name: k, Count: v})
 	}
 	sort.Slice(extensions, func(i, j int) bool {
+		if extensions[i].Count == extensions[j].Count {
+			return extensions[i].Name < extensions[j].Name
+		}
 		return extensions[i].Count > extensions[j].Count
 	})
 	return extensions, nil

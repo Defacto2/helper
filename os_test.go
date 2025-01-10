@@ -17,7 +17,7 @@ func ExampleCountExts() {
 	dir, _ := filepath.Abs("testdata")
 	counts, _ := helper.CountExts(dir)
 	fmt.Printf("%v", counts)
-	// Output: [{.txt 1} {.bmp 1} {.doc 1}]
+	// Output: [{.bmp 1} {.doc 1} {.txt 1}]
 }
 
 func ExampleLines() {
