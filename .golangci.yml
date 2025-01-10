@@ -1,0 +1,18 @@
+# https://golangci-lint.run/usage/configuration/
+# 
+# To test and lint the code, run the following commands:
+# $ go test -race ./...
+# $ gofumpt -w ./..
+# $ golangci-lint run
+
+linters:
+  enable-all: true
+  disable:
+    # deprecated
+    - exportloopref
+    # disabled
+    - depguard          # don't need this
+    - funlen            # should enable at a later stage
+    - nlreturn          # fussy over whitespace
+    - varnamelen        # fussy over variable names
+    - wsl               # fussy over whitespace
