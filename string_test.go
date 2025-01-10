@@ -130,8 +130,8 @@ func ExampleTimeDistance() {
 }
 
 func ExampleAdd1() {
-	num := 2
-	fmt.Println(helper.Add1(num))
+	num := helper.Add1(2)
+	fmt.Println(num)
 	// Output:
 	// 3
 }
