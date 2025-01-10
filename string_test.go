@@ -358,7 +358,7 @@ func TestTruncFilename(t *testing.T) {
 		args args
 		want string
 	}{
-		{"empty", args{}, ""},
+		{"empty", args{-1, ""}, ""},
 		{"zero", args{0, fn}, ""},
 		{"ext", args{5, fn}, ".file"},
 		{"too short", args{4, fn}, ".file"},

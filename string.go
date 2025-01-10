@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"golang.org/x/exp/slices"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"golang.org/x/text/runes"
@@ -131,9 +131,9 @@ func DeleteDupe(s ...string) []string {
 
 // Deobfuscate the obfuscated string, or return the original string.
 //
-// This function is a port of a CFWheels framework [function] programmed in ColdFusion (CFML).
+// This function is a port of the [deobfuscateParam] function programmed in ColdFusion (CFML).
 //
-// [function]: https://github.com/cfwheels/cfwheels/blob/cf8e6da4b9a216b642862e7205345dd5fca34b54/wheels/global/misc.cfm#L508
+// [deobfuscateParam]: https://github.com/cfwheels/cfwheels/blob/main/wheels/global/misc.cfm
 func DeObfuscate(s string) string {
 	const checksum, decimal = 2, 10
 	if len(s) < checksum {
@@ -232,9 +232,9 @@ func ObfuscateID(key int64) string {
 
 // Obfuscate a numeric string to insecurely hide database primary key values when passed along a URL.
 //
-// This function is a port of a CFWheels framework [function] programmed in ColdFusion (CFML).
+// This function is a port of the [obfuscateParam] function programmed in ColdFusion (CFML).
 //
-// [function]: https://github.com/cfwheels/cfwheels/blob/cf8e6da4b9a216b642862e7205345dd5fca34b54/wheels/global/misc.cfm#L483
+// [obfuscateParam]: https://github.com/cfwheels/cfwheels/blob/main/wheels/global/misc.cfm
 func Obfuscate(s string) string {
 	i, err := strconv.Atoi(s)
 	if err != nil {
@@ -280,7 +280,7 @@ func PageCount(sum, limit int) uint {
 
 // Released returns a string release date as year, month, day int16 values.
 // The string is expected to be in the format "2024-07-15" or "2024-07" or "2024".
-func Released(s string) (int16, int16, int16) {
+func Released(s string) (int16, int16, int16) { //nolint:cyclop
 	dates := strings.Split(s, "-") // "2024-07-15"
 	l := len(dates)
 	if l == 0 || l > 3 {

@@ -29,8 +29,24 @@ const (
 	Timeout = 5 * time.Second
 	// User-Agent to send with the HTTP request.
 	UserAgent = "Defacto2 2024 app under construction (thanks!)"
-	// byteUnits is a list of units used for formatting byte sizes.
-	byteUnits = "kMGTPE"
+
+	byteUnits = "kMGTPE" // byteUnits is a list of units used for formatting byte sizes
+
+	controlStart   = 0x00  // ASCII control character start
+	controlEnd     = 0x1f  // ASCII control character end
+	undefinedStart = 0x7f  // Latin-1 undefined characters start
+	undefinedEnd   = 0x9f  // Latin-1 undefined characters end
+	escape         = 0x1b  // ASCII escape control character
+	unknownRune    = 65533 // Unicode replacement character (�)
+	kcfAltEsc      = 0x9b  // Amiga had Keymap Qualifier Bits, which could be a typo to generate an Alt-Esc sequence?
+	bell           = 0x07  // ASCII bell character that is sometimes found in Amiga ANSI files
+	house          = 0x7f  // CP-437 house character that displays a unique glyph in the Amiga Topaz font
+
+	formFeed       = '\f'
+	newline        = '\n'
+	carriageReturn = '\r'
+	tab            = '\t'
+	verticalTab    = '\v'
 )
 
 var (
@@ -115,45 +131,43 @@ func Day(i int) bool {
 // Without false-positives, is difficult to determine the encoding of a text slice without
 // a BOM or other metadata, especially a legacy, 8-bit code page encoding vs UTF-8 encoding.
 // For example, the 👾 (alien monster) emoji in UTF-8 is comprised
-// of the bytes 0xf0, 0x9f, 0x91, 0xbe, which are all valid CP-437 characters.
+// of the bytes 240, 159, 145, 190, which are all valid CP-437 characters.
 //
-//	"👾"	// [240 159 145 190]
-//	"≡ƒæ╛"	// [240 159 145 190]
-func Determine(reader io.Reader) encoding.Encoding {
-	if reader == nil {
+//	"👾"	// [240 159 145 190] unicode.UTF8
+//	"≡ƒæ╛"	// [240 159 145 190] charmap.CodePage437
+func Determine(r io.Reader) encoding.Encoding { //nolint:ireturn
+	if r == nil {
 		return nil
 	}
-	const (
-		controlStart   = 0x00  // ASCII control character start
-		controlEnd     = 0x1f  // ASCII control character end
-		undefinedStart = 0x7f  // Latin-1 undefined characters start
-		undefinedEnd   = 0x9f  // Latin-1 undefined characters end
-		escape         = 0x1b  // ASCII escape control character
-		unknownRune    = 65533 // Unicode replacement character (�)
-	)
-	// The following characters are considered whitespace characters in C
-	// with the isspace function:
-	// https://en.cppreference.com/w/c/string/byte/isspace
-	const (
-		formFeed       = '\f'
-		newline        = '\n'
-		carriageReturn = '\r'
-		tab            = '\t'
-		verticalTab    = '\v'
-	)
-
-	// KCF key qualifiers on the Commodore Amiga, see: https://wiki.amigaos.net/wiki/Keymap_Library
-
-	const (
-		kcfAltEsc = 0x9b // the Amiga had Keymap Qualifier Bits, which could be a typo to generate an Alt-Esc sequence?
-		bell      = 0x07 // ASCII bell character that is sometimes found in Amiga ANSI files
-		house     = 0x7f // CP-437 house character that displays a unique glyph in the Amiga Topaz font
-	)
-
-	p, err := io.ReadAll(reader)
+	p, err := io.ReadAll(r)
 	if err != nil {
 		return nil
 	}
+	if e := chars(p); e != nil {
+		return e
+	}
+	if e := sequences(p); e != nil {
+		return e
+	}
+	// Check for Unicode multi-byte characters
+	// If an unknown rune is encountered then assume the encoding is
+	// using a legacy 8-bit code page encoding, such as CP-437.
+	for _, r := range bytes.Runes(p) {
+		if utf8.RuneLen(r) > 1 {
+			if r == unknownRune {
+				return charmap.ISO8859_1
+			}
+			return unicode.UTF8
+		}
+	}
+	return charmap.ISO8859_1
+}
+
+// Chars returns the encoding based on the presence of common CP-437 or ISO-8859-1 characters.
+// A nil encoding is returned if no encoding is determined.
+//
+// This should be done before checking for multi-byte characters, which could be misinterpreted as UTF-8 runes.
+func chars(p []byte) encoding.Encoding { //nolint:ireturn
 	for _, char := range p {
 		switch {
 		case char == escape:
@@ -181,30 +195,15 @@ func Determine(reader io.Reader) encoding.Encoding {
 			return charmap.CodePage437
 		}
 	}
-	// Check for common CP-437 sequences and characters.
-	// This should be done before checking for multi-byte characters, which could be
-	// misinterpreted as UTF-8 runes.
-	if s := sequences(p); s != nil {
-		return s
-	}
-	// Check for Unicode multi-byte characters
-	// If an unknown rune is encountered then assume the encoding is
-	// using a legacy 8-bit code page encoding, such as CP-437.
-	for _, r := range bytes.Runes(p) {
-		if utf8.RuneLen(r) > 1 {
-			if r == unknownRune {
-				return charmap.ISO8859_1
-			}
-			return unicode.UTF8
-		}
-	}
-	return charmap.ISO8859_1
+	return nil
 }
 
-// sequences returns the encoding based on the presence of common CP-437 or ISO-8859-1 character sequences.
+// Sequences returns the encoding based on the presence of common CP-437 or ISO-8859-1 character sequences.
 // Full block, medium shade, horizontal bars and half blocks are sequences of characters that are often
 // unique to the CP-437 encoding.
-func sequences(p []byte) encoding.Encoding {
+//
+// This should be done before checking for multi-byte characters, which could be misinterpreted as UTF-8 runes.
+func sequences(p []byte) encoding.Encoding { //nolint:ireturn
 	const (
 		shadeLight     = 0xb0 // ░
 		shadeMedium    = 0xb1 // ▒
@@ -296,7 +295,10 @@ func LocalHosts() ([]string, error) {
 // Ping sends a HTTP GET request to the provided URI and returns the status code and size of the response.
 func Ping(uri string) (int, int64, error) {
 	client := http.Client{
-		Timeout: Timeout,
+		Timeout:       Timeout,
+		Transport:     nil,
+		Jar:           nil,
+		CheckRedirect: nil,
 	}
 	ctx := context.Background()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)

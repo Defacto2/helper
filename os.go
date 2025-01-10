@@ -217,19 +217,25 @@ func FileMatch(name1, name2 string) (bool, error) {
 		n1, err1 := f1.Read(buf1)
 		n2, err2 := f2.Read(buf2)
 		if err1 != nil || err2 != nil {
-			if err1 == io.EOF && err2 == io.EOF {
-				break
-			} else if err1 == io.EOF || err2 == io.EOF {
-				return false, ErrDiffLength
-			}
-			return false, fmt.Errorf("file match %w: %s, %s", ErrRead, name1, name2)
+			return fmErrs(err1, err2, name1, name2)
 		}
-
-		if n1 != n2 || string(buf1[:n1]) != string(buf2[:n2]) {
+		if n1 != n2 {
+			return false, nil
+		}
+		if string(buf1[:n1]) != string(buf2[:n2]) {
 			return false, nil
 		}
 	}
-	return true, nil
+}
+
+func fmErrs(err1, err2 error, name1, name2 string) (bool, error) {
+	if errors.Is(err1, io.EOF) && errors.Is(err2, io.EOF) {
+		return true, nil
+	}
+	if errors.Is(err1, io.EOF) || errors.Is(err2, io.EOF) {
+		return false, ErrDiffLength
+	}
+	return false, fmt.Errorf("file match %w: %s, %s", ErrRead, name1, name2)
 }
 
 // Finds returns true if the name is found in the collection of names.
