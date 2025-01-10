@@ -109,9 +109,16 @@ func Day(i int) bool {
 	return false
 }
 
-// Determine returns the encoding of the plain text byte slice.
-// If the byte slice contains Unicode multi-byte characters then nil is returned.
-// Otherwise a charmap.ISO8859_1 or charmap.CodePage437 encoding is returned.
+// Determine returns the encoding of the plain text byte slice, either
+// the charmap.ISO8859_1 or charmap.CodePage437 encoding is returned.
+//
+// Without false-positives, is difficult to determine the encoding of a text slice without
+// a BOM or other metadata, especially a legacy, 8-bit code page encoding vs UTF-8 encoding.
+// For example, the 👾 (alien monster) emoji in UTF-8 is comprised
+// of the bytes 0xf0, 0x9f, 0x91, 0xbe, which are all valid CP-437 characters.
+//
+//	"👾"	// [240 159 145 190]
+//	"≡ƒæ╛"	// [240 159 145 190]
 func Determine(reader io.Reader) encoding.Encoding {
 	if reader == nil {
 		return nil
@@ -183,17 +190,13 @@ func Determine(reader io.Reader) encoding.Encoding {
 	// Check for Unicode multi-byte characters
 	// If an unknown rune is encountered then assume the encoding is
 	// using a legacy 8-bit code page encoding, such as CP-437.
-	multibyte := false
 	for _, r := range bytes.Runes(p) {
 		if utf8.RuneLen(r) > 1 {
 			if r == unknownRune {
-				break
+				return charmap.ISO8859_1
 			}
-			multibyte = true
+			return unicode.UTF8
 		}
-	}
-	if multibyte {
-		return unicode.UTF8
 	}
 	return charmap.ISO8859_1
 }

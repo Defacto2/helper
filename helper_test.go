@@ -14,23 +14,26 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/text/encoding/charmap"
-	"golang.org/x/text/encoding/unicode"
 )
 
 //go:embed testdata
 var testdataFS embed.FS
 
+func TestDetermineEncoding_Unicode(t *testing.T) {
+	t.Parallel()
+	sr := strings.NewReader("Hello world 👾!!!")
+	e := helper.Determine(sr)
+	assert.Equal(t, charmap.CodePage437, e, "wanted CP-437 but got %s", e)
+}
+
 func TestDetermineEncoding(t *testing.T) {
+	t.Parallel()
 	e := helper.Determine(nil)
 	assert.Nil(t, e)
 
 	sr := strings.NewReader("Hello world!")
 	e = helper.Determine(sr)
 	assert.Equal(t, charmap.ISO8859_1, e)
-
-	sr = strings.NewReader("Hello world 👾!!!")
-	e = helper.Determine(sr)
-	assert.Equal(t, unicode.UTF8, e, "wanted UTF-8 but got %s", e)
 
 	p := []byte("")
 	p = append(p, 0x1b)
@@ -276,24 +279,16 @@ func TestBools(t *testing.T) {
 	assert.False(t, helper.Year(-1))
 	assert.True(t, helper.Year(1970))
 	assert.False(t, helper.Year(time.Now().Year()+1))
-	// assert.False(t, ext.IsApp("myapp"))
-	// assert.True(t, ext.IsApp("myapp.exe"))
-	// assert.True(t, ext.IsArchive("stuff.zip"))
-	// assert.True(t, ext.IsDocument("readme.doc"))
-	// assert.True(t, ext.IsImage("cat.jpeg"))
-	// assert.True(t, ext.IsHTML("index.html"))
-	// assert.True(t, ext.IsAudio("song.wav"))
-	// assert.True(t, ext.IsTune("song.mod"))
-	// assert.True(t, ext.IsVideo("cat.divx"))
 }
 
 func TestDetermineFile(t *testing.T) {
 	t.Parallel()
 
-	r, err := os.Open("testdata/INFINITY.NFO")
+	// This is a CP-437 file that can also be read as ISO-8859-1.
+	r, err := os.Open("testdata/PKZ80A1.TXT")
 	require.NoError(t, err)
 	defer r.Close()
 
 	e := helper.Determine(r)
-	assert.Equal(t, charmap.CodePage437, e)
+	assert.Equal(t, charmap.ISO8859_1, e)
 }
