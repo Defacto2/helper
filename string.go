@@ -215,14 +215,14 @@ func FmtSlice(s string) string {
 // MaxLineLength counts the character length of the longest line in a string.
 func MaxLineLength(s string) int {
 	lines := strings.Split(s, "\n")
-	max := 0
+	longest := 0
 	for _, line := range lines {
 		l := utf8.RuneCountInString(line)
-		if l > max {
-			max = l
+		if l > longest {
+			longest = l
 		}
 	}
-	return max
+	return longest
 }
 
 // ObfuscateID the primary key of a record as a string that is used as a URL param or path.

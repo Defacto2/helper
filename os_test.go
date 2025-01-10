@@ -2,7 +2,6 @@ package helper_test
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -93,15 +92,11 @@ func TestDuplicate(t *testing.T) {
 	require.Error(t, err)
 	assert.Empty(t, r)
 
-	dest, err := os.MkdirTemp(helper.TmpDir(), "test_duplicate")
-	require.NoError(t, err)
-	defer os.RemoveAll(dest)
-
-	r, err = helper.Duplicate(file, dest)
+	r, err = helper.Duplicate(file, t.TempDir())
 	require.Error(t, err)
 	assert.Empty(t, r)
 
-	dest = filepath.Join(dest, "TEST.NFO")
+	dest := filepath.Join(t.TempDir(), "TEST.NFO")
 	written, err := helper.Duplicate(file, dest)
 	require.NoError(t, err)
 	assert.Equal(t, int64(13), written)
@@ -159,14 +154,10 @@ func TestRenameFile(t *testing.T) {
 	err := helper.RenameFile("", "")
 	require.Error(t, err)
 
-	dir, err := os.MkdirTemp(helper.TmpDir(), "test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	err = helper.RenameFile(dir, "")
+	err = helper.RenameFile(t.TempDir(), "")
 	require.ErrorIs(t, err, helper.ErrFilePath)
 
-	abs := filepath.Join(dir, name)
+	abs := filepath.Join(t.TempDir(), name)
 	err = helper.Touch(abs)
 	require.NoError(t, err)
 
@@ -187,14 +178,10 @@ func TestRenameFileOW(t *testing.T) {
 	err := helper.RenameFileOW("", "")
 	require.Error(t, err)
 
-	dir, err := os.MkdirTemp(helper.TmpDir(), "test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	err = helper.RenameFileOW(dir, "")
+	err = helper.RenameFileOW(t.TempDir(), "")
 	require.ErrorIs(t, err, helper.ErrFilePath)
 
-	abs := filepath.Join(dir, name)
+	abs := filepath.Join(t.TempDir(), name)
 	err = helper.Touch(abs)
 	require.NoError(t, err)
 
@@ -215,14 +202,10 @@ func TestRenameCrossDevice(t *testing.T) {
 	err := helper.RenameCrossDevice("", "")
 	require.Error(t, err)
 
-	dir, err := os.MkdirTemp(helper.TmpDir(), "test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-
-	err = helper.RenameCrossDevice(dir, "")
+	err = helper.RenameCrossDevice(t.TempDir(), "")
 	require.Error(t, err)
 
-	abs := filepath.Join(dir, name)
+	abs := filepath.Join(t.TempDir(), name)
 	err = helper.Touch(abs)
 	require.NoError(t, err)
 
@@ -245,10 +228,7 @@ func TestSize(t *testing.T) {
 	i = helper.Size("nosuchfile")
 	assert.Equal(t, none, i)
 
-	dir, err := os.MkdirTemp(helper.TmpDir(), "test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-	abs := filepath.Join(dir, name)
+	abs := filepath.Join(t.TempDir(), name)
 	x, err := helper.TouchW(abs, data...)
 	require.NoError(t, err)
 
@@ -271,10 +251,7 @@ func TestStrongIntegrity(t *testing.T) {
 	require.Error(t, err)
 	assert.Empty(t, s)
 
-	dir, err := os.MkdirTemp(helper.TmpDir(), "test")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
-	abs := filepath.Join(dir, name)
+	abs := filepath.Join(t.TempDir(), name)
 	_, err = helper.TouchW(abs, data...)
 	require.NoError(t, err)
 
