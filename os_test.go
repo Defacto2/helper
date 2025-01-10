@@ -49,6 +49,7 @@ func ExampleCount() {
 }
 
 func TestCount(t *testing.T) {
+	t.Parallel()
 	dir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 
@@ -66,6 +67,7 @@ func TestCount(t *testing.T) {
 }
 
 func TestDuplicate(t *testing.T) {
+	t.Parallel()
 	dir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 
@@ -106,6 +108,7 @@ func TestDuplicate(t *testing.T) {
 }
 
 func TestFiles(t *testing.T) {
+	t.Parallel()
 	dir, err := filepath.Abs("testdata")
 	require.NoError(t, err)
 
@@ -123,6 +126,7 @@ func TestFiles(t *testing.T) {
 }
 
 func TestLines(t *testing.T) {
+	t.Parallel()
 	i, err := helper.Lines("")
 	require.Error(t, err)
 	assert.Equal(t, 0, i)
@@ -149,6 +153,7 @@ func TestLines(t *testing.T) {
 }
 
 func TestRenameFile(t *testing.T) {
+	t.Parallel()
 	const name = "test_rename_file"
 
 	err := helper.RenameFile("", "")
@@ -176,6 +181,7 @@ func TestRenameFile(t *testing.T) {
 }
 
 func TestRenameFileOW(t *testing.T) {
+	t.Parallel()
 	const name = "test_rename_file"
 
 	err := helper.RenameFileOW("", "")
@@ -203,6 +209,7 @@ func TestRenameFileOW(t *testing.T) {
 }
 
 func TestRenameCrossDevice(t *testing.T) {
+	t.Parallel()
 	const name = "test_rename_file"
 
 	err := helper.RenameCrossDevice("", "")
@@ -227,6 +234,7 @@ func TestRenameCrossDevice(t *testing.T) {
 }
 
 func TestSize(t *testing.T) {
+	t.Parallel()
 	const name = "test_rename_file"
 	const none = int64(-1)
 	data := []byte("Hello, World!")
@@ -249,6 +257,7 @@ func TestSize(t *testing.T) {
 }
 
 func TestStrongIntegrity(t *testing.T) {
+	t.Parallel()
 	const name = "test_strong_integrity"
 	const expected = "5485cc9b3365b4305dfb4e8337e0a598a574f8242bf17289e0" +
 		"dd6c20a3cd44a089de16ab4ab308f63e44b1170eb5f515"

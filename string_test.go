@@ -221,6 +221,7 @@ func TestCfUUID(t *testing.T) {
 }
 
 func TestByteCount(t *testing.T) {
+	t.Parallel()
 	s := helper.ByteCount(0)
 	assert.Equal(t, "0B", s)
 	s = helper.ByteCount(1023)
@@ -234,6 +235,7 @@ func TestByteCount(t *testing.T) {
 }
 
 func TestByteCountFloat(t *testing.T) {
+	t.Parallel()
 	s := helper.ByteCountFloat(0)
 	assert.Equal(t, "0 bytes", s)
 	s = helper.ByteCountFloat(1023)
@@ -251,6 +253,7 @@ func TestByteCountFloat(t *testing.T) {
 }
 
 func TestCapitalize(t *testing.T) {
+	t.Parallel()
 	s := helper.Capitalize("")
 	assert.Equal(t, "", s)
 	s = helper.Capitalize("hello")
@@ -262,6 +265,7 @@ func TestCapitalize(t *testing.T) {
 }
 
 func TestDeleteDupe(t *testing.T) {
+	t.Parallel()
 	s := helper.DeleteDupe(nil...)
 	assert.EqualValues(t, []string{}, s)
 	s = helper.DeleteDupe([]string{"a"}...)
@@ -273,6 +277,7 @@ func TestDeleteDupe(t *testing.T) {
 }
 
 func TestFmtSlice(t *testing.T) {
+	t.Parallel()
 	s := helper.FmtSlice("")
 	assert.Equal(t, "", s)
 	s = helper.FmtSlice("a")
@@ -284,6 +289,7 @@ func TestFmtSlice(t *testing.T) {
 }
 
 func TestChrLast(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		s    string
 		want string
@@ -296,6 +302,7 @@ func TestChrLast(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.s, func(t *testing.T) {
+			t.Parallel()
 			if got := helper.ChrLast(tt.s); got != tt.want {
 				t.Errorf("ChrLast() = %v, want %v", got, tt.want)
 			}
@@ -304,6 +311,7 @@ func TestChrLast(t *testing.T) {
 }
 
 func TestMaxLineLength(t *testing.T) {
+	t.Parallel()
 	i := helper.MaxLineLength("")
 	assert.Equal(t, 0, i)
 	i = helper.MaxLineLength("a")
@@ -315,6 +323,7 @@ func TestMaxLineLength(t *testing.T) {
 }
 
 func TestShortMonth(t *testing.T) {
+	t.Parallel()
 	s := helper.ShortMonth(0)
 	assert.Equal(t, "", s)
 	s = helper.ShortMonth(1)
@@ -326,6 +335,7 @@ func TestShortMonth(t *testing.T) {
 }
 
 func TestSplitAsSpace(t *testing.T) {
+	t.Parallel()
 	s := helper.SplitAsSpaces("")
 	assert.Equal(t, "", s)
 	s = helper.SplitAsSpaces("a")
@@ -337,6 +347,7 @@ func TestSplitAsSpace(t *testing.T) {
 }
 
 func TestTruncFilename(t *testing.T) {
+	t.Parallel()
 	const fn = "one_two-three.file"
 	type args struct {
 		w    int
@@ -356,6 +367,7 @@ func TestTruncFilename(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := helper.TruncFilename(tt.args.w, tt.args.name); got != tt.want {
 				t.Errorf("TruncFilename() = %v, want %v", got, tt.want)
 			}
@@ -364,6 +376,7 @@ func TestTruncFilename(t *testing.T) {
 }
 
 func TestTrimRoundBraket(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		s    string
@@ -376,12 +389,14 @@ func TestTrimRoundBraket(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tt.want, helper.TrimRoundBraket(tt.s))
 		})
 	}
 }
 
 func TestTrimPunct(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		s    string
 		want string
@@ -396,6 +411,7 @@ func TestTrimPunct(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.s, func(t *testing.T) {
+			t.Parallel()
 			if got := helper.TrimPunct(tt.s); got != tt.want {
 				t.Errorf("TrimPunct() = %v, want %v", got, tt.want)
 			}
@@ -404,6 +420,7 @@ func TestTrimPunct(t *testing.T) {
 }
 
 func TestYears(t *testing.T) {
+	t.Parallel()
 	s := helper.Years(0, 0)
 	assert.Equal(t, "the year 0", s)
 	s = helper.Years(1990, 1991)
@@ -415,6 +432,7 @@ func TestYears(t *testing.T) {
 // https://defacto2.net/f/ab27b2e
 
 func TestDeobfuscateURL(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		rawURL string
@@ -427,12 +445,14 @@ func TestDeobfuscateURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tt.want, helper.DeobfuscateURL(tt.rawURL))
 		})
 	}
 }
 
 func TestSlug(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		expect    string
@@ -447,12 +467,14 @@ func TestSlug(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.expect, func(t *testing.T) {
+			t.Parallel()
 			tt.assertion(t, tt.expect, helper.Slug(tt.name))
 		})
 	}
 }
 
 func TestPageCount(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		sum   int
 		limit int
@@ -473,12 +495,14 @@ func TestPageCount(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tt.want, helper.PageCount(tt.args.sum, tt.args.limit))
 		})
 	}
 }
 
 func TestObfuscates(t *testing.T) {
+	t.Parallel()
 	keys := []int{1, 1000, 1236346, -123, 0}
 	for _, key := range keys {
 		s := helper.ObfuscateID(int64(key))
@@ -487,6 +511,7 @@ func TestObfuscates(t *testing.T) {
 }
 
 func TestSearchTerm(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		input string
@@ -502,12 +527,14 @@ func TestSearchTerm(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tt.want, helper.SearchTerm(tt.input))
 		})
 	}
 }
 
 func TestTitleize(t *testing.T) {
+	t.Parallel()
 	s := helper.Titleize("")
 	assert.Empty(t, s)
 

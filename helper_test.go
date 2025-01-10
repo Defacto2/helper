@@ -142,12 +142,14 @@ func TestIntegrityBytes(t *testing.T) {
 }
 
 func TestLatency(t *testing.T) {
+	t.Parallel()
 	result := helper.Latency()
 	now := time.Now()
 	assert.Less(t, *result, now)
 }
 
 func TestTimeDistance(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	s := helper.TimeDistance(now, now, false)
 	assert.Equal(t, "less than a minute", s)
@@ -182,6 +184,7 @@ func TestTimeDistance(t *testing.T) {
 }
 
 func TestAdd1(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		a         any
 		expect    int64
@@ -195,12 +198,14 @@ func TestAdd1(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tt.expect, helper.Add1(tt.a))
 		})
 	}
 }
 
 func TestFileMatch(t *testing.T) {
+	t.Parallel()
 	_, err := helper.FileMatch("", "")
 	require.Error(t, err)
 	v, err := helper.FileMatch("helper.go", "helper.go")
@@ -212,6 +217,7 @@ func TestFileMatch(t *testing.T) {
 }
 
 func TestFinds(t *testing.T) {
+	t.Parallel()
 	s := []string{"abc", "def", "ghi"}
 	type args struct {
 		name  string
@@ -229,12 +235,14 @@ func TestFinds(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.args.name, func(t *testing.T) {
+			t.Parallel()
 			tt.assertion(t, tt.expect, helper.Finds(tt.args.name, tt.args.names...))
 		})
 	}
 }
 
 func TestIsFile(t *testing.T) {
+	t.Parallel()
 	self := filepath.Join(".", "helper_test.go")
 	tests := []struct {
 		name      string
@@ -248,12 +256,14 @@ func TestIsFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tt.assertion(t, tt.expect, helper.File(tt.name))
 		})
 	}
 }
 
 func TestIsStat(t *testing.T) {
+	t.Parallel()
 	self := filepath.Join(".", "helper_test.go")
 	tests := []struct {
 		name      string
@@ -267,12 +277,14 @@ func TestIsStat(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tt.assertion(t, tt.expect, helper.Stat(tt.name))
 		})
 	}
 }
 
 func TestBools(t *testing.T) {
+	t.Parallel()
 	assert.False(t, helper.Day(-1))
 	assert.False(t, helper.Day(32))
 	assert.True(t, helper.Day(1))
