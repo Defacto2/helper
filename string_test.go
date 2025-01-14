@@ -482,7 +482,7 @@ func TestPageCount(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want uint
+		want int
 	}{
 		{"-1", args{-1, -1}, 0},
 		{"0", args{0, 500}, 0},
@@ -544,49 +544,3 @@ func TestTitleize(t *testing.T) {
 	s = helper.Titleize("hello world, how are you?")
 	assert.Equal(t, "Hello World, How Are You?", s)
 }
-
-// func TestReleased(t *testing.T) {
-// 	t.Parallel()
-// 	tests := []struct {
-// 		name          string
-// 		releaseDate   string
-// 		expectedYear  int16
-// 		expectedMonth int16
-// 		expectedDay   int16
-// 	}{
-// 		{
-// 			name:          "Valid release date",
-// 			releaseDate:   "2024-07-15",
-// 			expectedYear:  2024,
-// 			expectedMonth: 7,
-// 			expectedDay:   15,
-// 		},
-// 		{
-// 			name:          "Valid release date",
-// 			releaseDate:   "2024-07",
-// 			expectedYear:  2024,
-// 			expectedMonth: 7,
-// 			expectedDay:   0,
-// 		},
-// 		{
-// 			name:          "Invalid release date",
-// 			releaseDate:   "2024-07-15-01",
-// 			expectedYear:  0,
-// 			expectedMonth: 0,
-// 			expectedDay:   0,
-// 		},
-// 	}
-
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			t.Parallel()
-// 			p := pouet.Production{
-// 				ReleaseDate: tt.releaseDate,
-// 			}
-// 			year, month, day := p.Released()
-// 			assert.Equal(t, tt.expectedYear, year)
-// 			assert.Equal(t, tt.expectedMonth, month)
-// 			assert.Equal(t, tt.expectedDay, day)
-// 		})
-// 	}
-// }

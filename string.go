@@ -270,12 +270,12 @@ func Obfuscate(s string) string {
 }
 
 // PageCount returns the maximum pages possible for the sum of records with a record limit per-page.
-func PageCount(sum, limit int) uint {
+func PageCount(sum, limit int) int {
 	if sum <= 0 || limit <= 0 {
 		return 0
 	}
 	x := math.Ceil(float64(sum) / float64(limit))
-	return uint(x)
+	return int(math.Abs(x))
 }
 
 // Released returns a string release date as year, month, day int16 values.
