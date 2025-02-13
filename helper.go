@@ -321,10 +321,11 @@ func Ping(uri string) (int, int64, error) {
 // LocalHostPing sends a HTTP GET request to the provided URI on the localhost
 // and returns the status code and size of the response.
 func LocalHostPing(uri string, proto string, port int) (int, int64, error) {
-	if _, err := net.LookupHost("localhost"); err != nil {
+	const local = "localhost"
+	if _, err := net.LookupHost(local); err != nil {
 		return http.StatusInternalServerError, 0, fmt.Errorf("helper localhost ping lookup %w", err)
 	}
-	url := fmt.Sprintf("%s://localhost:%d%s", proto, port, uri)
+	url := fmt.Sprintf("%s://%s:%d%s", proto, local, port, uri)
 	return Ping(url)
 }
 
@@ -396,7 +397,6 @@ func lessMinAsSec(secs int) string {
 // lessHours returns a string describing the time difference in hours.
 func lessHours(mins, hrs int) string {
 	const parthour, abouthour, hours = 45, 90, 1440
-
 	switch {
 	case mins < parthour:
 		return fmt.Sprintf("%d minutes", mins)

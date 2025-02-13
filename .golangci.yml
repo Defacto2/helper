@@ -9,7 +9,7 @@ linters:
   enable-all: true
   disable:
     # deprecated
-    - exportloopref
+    - tenv
     # disabled
     - depguard          # don't need this
     - funlen            # should enable at a later stage

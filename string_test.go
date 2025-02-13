@@ -59,7 +59,7 @@ func ExampleCfUUID() {
 }
 
 func ExampleDeleteDupe() {
-	fmt.Println(helper.DeleteDupe("a", "b", "a"))
+	fmt.Println(helper.DeleteDupe("b", "a", "a"))
 	// Output:
 	// [a b]
 }

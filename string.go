@@ -109,7 +109,7 @@ func CfUUID(cfid string) (string, error) {
 	newid := string(r)
 	err := uuid.Validate(newid)
 	if err != nil {
-		return "", fmt.Errorf("cftouuid validate %w", err)
+		return "", fmt.Errorf("cfuuid validate %w", err)
 	}
 	return newid, nil
 }
@@ -117,15 +117,13 @@ func CfUUID(cfid string) (string, error) {
 // DeleteDupe removes duplicate strings from a slice.
 // The returned slice is sorted and compacted.
 func DeleteDupe(s ...string) []string {
-	slices.Sort(s)
-	s = slices.Compact(s)
 	x := make([]string, 0, len(s))
-	for _, val := range s {
-		if slices.Contains(x, val) {
-			continue
+	for val := range slices.Values(s) {
+		if !slices.Contains(x, val) {
+			x = append(x, val)
 		}
-		x = append(x, val)
 	}
+	slices.Sort(x)
 	return slices.Compact(x)
 }
 
@@ -201,28 +199,25 @@ func DeobfuscateURL(rawURL string) int {
 // FmtSlice formats a comma separated string.
 func FmtSlice(s string) string {
 	x := []string{}
-	y := strings.Split(s, ",")
-	for _, z := range y {
-		z = strings.TrimSpace(z)
-		if z == "" {
+	for part := range strings.SplitSeq(s, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
 			continue
 		}
-		x = append(x, Capitalize(z))
+		x = append(x, Capitalize(part))
 	}
 	return strings.Join(x, ", ")
 }
 
 // MaxLineLength counts the character length of the longest line in a string.
 func MaxLineLength(s string) int {
-	lines := strings.Split(s, "\n")
-	longest := 0
-	for _, line := range lines {
-		l := utf8.RuneCountInString(line)
-		if l > longest {
-			longest = l
+	maxLen := 0
+	for line := range strings.SplitSeq(s, "\n") {
+		if n := utf8.RuneCountInString(line); n > maxLen {
+			maxLen = n
 		}
 	}
-	return longest
+	return maxLen
 }
 
 // ObfuscateID the primary key of a record as a string that is used as a URL param or path.
@@ -335,12 +330,11 @@ func SearchTerm(input string) []string {
 	if input == "" {
 		return []string{}
 	}
-	// split the input by double quotes
-	q := strings.Split(input, ",")
+	terms := strings.Split(input, ",")
 	// join the two slices
-	s := make([]string, 0, len(q))
-	for _, v := range q {
-		s = append(s, strings.TrimSpace(v))
+	s := make([]string, 0, len(terms))
+	for term := range slices.Values(terms) {
+		s = append(s, strings.TrimSpace(term))
 	}
 	return s
 }
@@ -414,17 +408,17 @@ func Titleize(s string) string {
 	}
 	const sep = " "
 	caser := cases.Title(language.English)
-	x := strings.Split(s, sep)
-	if len(x) == 1 {
+	words := strings.Split(s, sep)
+	if len(words) == 1 {
 		return caser.String(s)
 	}
-	for i, word := range x {
+	for i, word := range words {
 		if word == "" {
 			continue
 		}
-		x[i] = caser.String(word)
+		words[i] = caser.String(word)
 	}
-	return strings.Join(x, sep)
+	return strings.Join(words, sep)
 }
 
 // TruncFilename reduces a filename to the length of w characters.

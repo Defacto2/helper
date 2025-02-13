@@ -2,6 +2,7 @@ package helper_test
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -258,4 +259,34 @@ func TestStrongIntegrity(t *testing.T) {
 	s, err = helper.StrongIntegrity(abs)
 	require.NoError(t, err)
 	assert.Equal(t, expected, s)
+
+	r, err := os.OpenRoot(t.TempDir())
+	require.NoError(t, err)
+	defer r.Close()
+	_, err = helper.TouchWR(r, name, data...)
+	require.NoError(t, err)
+	s, err = helper.StrongIntegrityR(r, name)
+	require.NoError(t, err)
+	assert.Equal(t, expected, s)
+
+	err = helper.TouchR(r, name)
+	require.Error(t, err)
+	_ = r.Remove(name)
+	err = helper.TouchR(r, name)
+	require.NoError(t, err)
+
+	err = helper.RenameRootOW(r, name, name)
+	require.Error(t, err)
+	err = helper.RenameRootOW(r, name, name+"abc")
+	require.NoError(t, err)
+
+	ok, err := helper.FileMatchR(r, name, name+"abc")
+	require.Error(t, err)
+	assert.False(t, ok)
+
+	err = helper.TouchR(r, name)
+	require.NoError(t, err)
+	ok, err = helper.FileMatchR(r, name, name+"abc")
+	require.NoError(t, err)
+	assert.True(t, ok)
 }

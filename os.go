@@ -208,7 +208,10 @@ func FileMatch(name1, name2 string) (bool, error) {
 		return false, fmt.Errorf("file match os.open %s: %w", name2, err)
 	}
 	defer f2.Close()
+	return fileMatch(f1, f2)
+}
 
+func fileMatch(f1, f2 *os.File) (bool, error) {
 	const maxSize = 4096
 	buf1 := make([]byte, maxSize)
 	buf2 := make([]byte, maxSize)
@@ -217,7 +220,7 @@ func FileMatch(name1, name2 string) (bool, error) {
 		n1, err1 := f1.Read(buf1)
 		n2, err2 := f2.Read(buf2)
 		if err1 != nil || err2 != nil {
-			return fmErrs(err1, err2, name1, name2)
+			return fmErrs(err1, err2, f1.Name(), f2.Name())
 		}
 		if n1 != n2 {
 			return false, nil
