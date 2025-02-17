@@ -2,7 +2,10 @@ package helper_test
 
 import (
 	"bytes"
+	"context"
 	"embed"
+	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +16,7 @@ import (
 	"github.com/Defacto2/helper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"golang.org/x/text/encoding/charmap"
 )
 
@@ -303,4 +307,48 @@ func TestDetermineFile(t *testing.T) {
 
 	e := helper.Determine(r)
 	assert.Equal(t, charmap.ISO8859_1, e)
+}
+func TestLocalHostPing(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		uri       string
+		proto     string
+		port      int
+		expect    int
+		expectErr bool
+	}{
+		{"/", "http", 80, http.StatusInternalServerError, true},
+		{"/", "http", 8080, http.StatusInternalServerError, true},
+		{"/", "https", 443, http.StatusInternalServerError, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s://localhost:%d%s", tt.proto, tt.port, tt.uri), func(t *testing.T) {
+			t.Parallel()
+			status, size, err := helper.LocalHostPing(tt.uri, tt.proto, tt.port)
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.expect, status)
+			assert.GreaterOrEqual(t, size, int64(0))
+		})
+	}
+}
+func TestLogger(t *testing.T) {
+	t.Parallel()
+	logger := zap.NewExample().Sugar()
+	defer logger.Sync()
+
+	ctx := context.WithValue(context.Background(), helper.LoggerKey, logger)
+	retrievedLogger := helper.Logger(ctx)
+	assert.Equal(t, logger, retrievedLogger)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Expected panic but did not get one")
+		}
+	}()
+	helper.Logger(context.Background())
 }

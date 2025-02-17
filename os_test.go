@@ -290,3 +290,12 @@ func TestStrongIntegrity(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, ok)
 }
+
+func TestOwner(t *testing.T) {
+	t.Parallel()
+
+	groups, username, err := helper.Owner()
+	require.NoError(t, err)
+	assert.NotEmpty(t, groups)
+	assert.NotEmpty(t, username)
+}
