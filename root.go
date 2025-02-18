@@ -10,28 +10,28 @@ import (
 // Package file root.go contains the helper functions for file system
 // that are constrained to the root directory.
 
-// Duplicater copies the contents of the named file to a new file.
+// Duplicater copies the contents of the named file to a new named file with the root.
 // The function returns an error if the newpath already exists.
-func Duplicater(r *os.Root, oldpath, newpath string) (int64, error) {
+func Duplicater(r *os.Root, name, newname string) (int64, error) {
 	const createNoTruncate = os.O_CREATE | os.O_WRONLY | os.O_EXCL
-	return duplicater(r, oldpath, newpath, createNoTruncate)
+	return duplicater(r, name, newname, createNoTruncate)
 }
 
-// Duplicater copies the contents of the named file to a new file.
+// Duplicater copies the contents of the named file to a new file with the root.
 // The function will truncate and overwrite the newpath if it already exists.
-func DuplicaterOW(r *os.Root, oldpath, newpath string) (int64, error) {
+func DuplicaterOW(r *os.Root, name, newname string) (int64, error) {
 	const createTruncate = os.O_CREATE | os.O_WRONLY | os.O_TRUNC
-	return duplicater(r, oldpath, newpath, createTruncate)
+	return duplicater(r, name, newname, createTruncate)
 }
 
-func duplicater(r *os.Root, oldpath, newpath string, flag int) (int64, error) {
-	src, err := r.Open(oldpath)
+func duplicater(r *os.Root, name, newname string, flag int) (int64, error) {
+	src, err := r.Open(name)
 	if err != nil {
 		return 0, fmt.Errorf("r duplicate os.open %w", err)
 	}
 	defer src.Close()
 
-	dst, err := r.OpenFile(newpath, flag, WriteWriteRead)
+	dst, err := r.OpenFile(newname, flag, WriteWriteRead)
 	if err != nil {
 		return 0, fmt.Errorf("r duplicate os.create %w", err)
 	}
