@@ -1,18 +1,32 @@
-# https://golangci-lint.run/usage/configuration/
-# 
-# To test and lint the code, run the following commands:
-# $ go test -race ./...
-# $ gofumpt -w ./..
-# $ golangci-lint run
-
+version: "2"
 linters:
-  enable-all: true
+  default: all
   disable:
-    # deprecated
-    - tenv
-    # disabled
-    - depguard          # don't need this
-    - funlen            # should enable at a later stage
-    - nlreturn          # fussy over whitespace
-    - varnamelen        # fussy over variable names
-    - wsl               # fussy over whitespace
+    - depguard
+    - funlen
+    - nlreturn
+    - varnamelen
+    - wsl
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

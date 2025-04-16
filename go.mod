@@ -1,11 +1,12 @@
 module github.com/Defacto2/helper
 
-go 1.24.0
+go 1.24.1
+
 require (
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/text v0.23.0
+	golang.org/x/text v0.24.0
 )
 
 require (
