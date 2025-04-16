@@ -308,6 +308,7 @@ func TestDetermineFile(t *testing.T) {
 	e := helper.Determine(r)
 	assert.Equal(t, charmap.ISO8859_1, e)
 }
+
 func TestLocalHostPing(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -327,21 +328,22 @@ func TestLocalHostPing(t *testing.T) {
 			t.Parallel()
 			status, size, err := helper.LocalHostPing(tt.uri, tt.proto, tt.port)
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.expect, status)
 			assert.GreaterOrEqual(t, size, int64(0))
 		})
 	}
 }
+
 func TestLogger(t *testing.T) {
 	t.Parallel()
 	logger := zap.NewExample().Sugar()
-	defer logger.Sync()
+	_ = logger.Sync()
 
-	ctx := context.WithValue(context.Background(), helper.LoggerKey, logger)
+	ctx := context.WithValue(t.Context(), helper.LoggerKey, logger)
 	retrievedLogger := helper.Logger(ctx)
 	assert.Equal(t, logger, retrievedLogger)
 
@@ -350,5 +352,5 @@ func TestLogger(t *testing.T) {
 			t.Errorf("Expected panic but did not get one")
 		}
 	}()
-	helper.Logger(context.Background())
+	helper.Logger(t.Context())
 }

@@ -255,7 +255,7 @@ func TestByteCountFloat(t *testing.T) {
 func TestCapitalize(t *testing.T) {
 	t.Parallel()
 	s := helper.Capitalize("")
-	assert.Equal(t, "", s)
+	assert.Empty(t, s)
 	s = helper.Capitalize("hello")
 	assert.Equal(t, "Hello", s)
 	s = helper.Capitalize("hello world")
@@ -267,19 +267,19 @@ func TestCapitalize(t *testing.T) {
 func TestDeleteDupe(t *testing.T) {
 	t.Parallel()
 	s := helper.DeleteDupe(nil...)
-	assert.EqualValues(t, []string{}, s)
+	assert.Equal(t, []string{}, s)
 	s = helper.DeleteDupe([]string{"a"}...)
-	assert.EqualValues(t, []string{"a"}, s)
+	assert.Equal(t, []string{"a"}, s)
 	s = helper.DeleteDupe([]string{"a", "b", "abcde"}...)
-	assert.EqualValues(t, []string{"a", "abcde", "b"}, s) // sorted
+	assert.Equal(t, []string{"a", "abcde", "b"}, s) // sorted
 	s = helper.DeleteDupe([]string{"a", "b", "a"}...)
-	assert.EqualValues(t, []string{"a", "b"}, s)
+	assert.Equal(t, []string{"a", "b"}, s)
 }
 
 func TestFmtSlice(t *testing.T) {
 	t.Parallel()
 	s := helper.FmtSlice("")
-	assert.Equal(t, "", s)
+	assert.Empty(t, s)
 	s = helper.FmtSlice("a")
 	assert.Equal(t, "A", s)
 	s = helper.FmtSlice("a,b, abcde")
@@ -325,19 +325,19 @@ func TestMaxLineLength(t *testing.T) {
 func TestShortMonth(t *testing.T) {
 	t.Parallel()
 	s := helper.ShortMonth(0)
-	assert.Equal(t, "", s)
+	assert.Empty(t, s)
 	s = helper.ShortMonth(1)
 	assert.Equal(t, "Jan", s)
 	s = helper.ShortMonth(12)
 	assert.Equal(t, "Dec", s)
 	s = helper.ShortMonth(13)
-	assert.Equal(t, "", s)
+	assert.Empty(t, s)
 }
 
 func TestSplitAsSpace(t *testing.T) {
 	t.Parallel()
 	s := helper.SplitAsSpaces("")
-	assert.Equal(t, "", s)
+	assert.Empty(t, s)
 	s = helper.SplitAsSpaces("a")
 	assert.Equal(t, "a", s)
 	s = helper.SplitAsSpaces("Hello world!")

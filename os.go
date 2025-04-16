@@ -426,7 +426,7 @@ func Stat(name string) bool {
 	return true
 }
 
-// SortNames sorts the names using the filepath seperator, where the root files are preferred.
+// SortNames sorts the names using the filepath separator, where the root files are preferred.
 //
 // Usually the sep value is a forward slash (/) or a Windows backslash (\).
 func SortNames(sep string, names []string) []string {
