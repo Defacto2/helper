@@ -37,7 +37,9 @@ func duplicater(r *os.Root, name, newname string, flag int) (int64, error) {
 	}
 	defer dst.Close()
 
-	written, err := io.Copy(dst, src)
+	const size = 4 * 1024
+	buf := make([]byte, size)
+	written, err := io.CopyBuffer(dst, src, buf)
 	if err != nil {
 		return 0, fmt.Errorf("r duplicate io.copy %w", err)
 	}

@@ -144,10 +144,11 @@ func duplicate(oldpath, newpath string, flag int) (int64, error) {
 		return 0, fmt.Errorf("duplicate os.create %w", err)
 	}
 	defer dst.Close()
-
-	written, err := io.Copy(dst, src)
+	const size = 4 * 1024
+	buf := make([]byte, size)
+	written, err := io.CopyBuffer(dst, src, buf)
 	if err != nil {
-		return 0, fmt.Errorf("duplicate io.copy %w", err)
+		return 0, fmt.Errorf("duplicate io.copybuffer %w", err)
 	}
 	return written, nil
 }
@@ -393,9 +394,12 @@ func RenameCrossDevice(oldpath, newpath string) error {
 	}
 	defer dst.Close()
 
-	if _, err = io.Copy(dst, src); err != nil {
+	const size = 4 * 1024
+	buf := make([]byte, size)
+	if _, err = io.CopyBuffer(dst, src, buf); err != nil {
 		return fmt.Errorf("rename cross device copy %w", err)
 	}
+
 	if fi, err := os.Stat(oldpath); err != nil {
 		defer os.Remove(newpath)
 		return fmt.Errorf("rename cross device stat %w", err)
