@@ -1,4 +1,4 @@
-// Package helpers are general, shared functions.
+// Package helper has general and shared functions.
 package helper
 
 import (
@@ -16,7 +16,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"go.uber.org/zap"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
@@ -63,16 +62,16 @@ var (
 type contextKey string
 
 // LoggerKey is the key used to store the logger in the context.
+//
+// Deprecated: As of release v1.5.
 const LoggerKey contextKey = "logger"
 
 // Logger returns the logger from the context.
 // If the logger is not found, it panics.
-func Logger(ctx context.Context) *zap.SugaredLogger {
-	logger, loggerExists := ctx.Value(LoggerKey).(*zap.SugaredLogger)
-	if !loggerExists {
-		panic("context logger is nil")
-	}
-	return logger
+//
+// Deprecated: As of release v1.5, this function returns nil.
+func Logger(ctx context.Context) any {
+	return nil
 }
 
 // Add1 returns the value of a + 1.
@@ -284,8 +283,9 @@ func LocalHosts() ([]string, error) {
 	}
 	hosts := []string{}
 	hosts = append(hosts, hostname)
-	// confirm localhost is resolvable
-	if _, err = net.LookupHost("localhost"); err != nil {
+	resolve := net.Resolver{}
+	_, err = resolve.LookupHost(context.Background(), "localhost")
+	if err != nil {
 		return nil, fmt.Errorf("net.LookupHost: %w", err)
 	}
 	hosts = append(hosts, "localhost")
@@ -322,7 +322,9 @@ func Ping(uri string) (int, int64, error) {
 // and returns the status code and size of the response.
 func LocalHostPing(uri string, proto string, port int) (int, int64, error) {
 	const local = "localhost"
-	if _, err := net.LookupHost(local); err != nil {
+	resolve := net.Resolver{}
+	_, err := resolve.LookupHost(context.Background(), "localhost")
+	if err != nil {
 		return http.StatusInternalServerError, 0, fmt.Errorf("helper localhost ping lookup %w", err)
 	}
 	url := fmt.Sprintf("%s://%s:%d%s", proto, local, port, uri)

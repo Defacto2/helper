@@ -127,7 +127,7 @@ func DeleteDupe(s ...string) []string {
 	return slices.Compact(x)
 }
 
-// Deobfuscate the obfuscated string, or return the original string.
+// DeObfuscate the obfuscated string, or return the original string.
 //
 // This function is a port of the [deobfuscateParam] function programmed in ColdFusion (CFML).
 //
@@ -185,7 +185,7 @@ func DeobfuscateID(id string) int {
 	return key
 }
 
-// Deobfuscate an obfuscated record URL to return a record's primary key.
+// DeobfuscateURL deobfuscate an obfuscated record URL to return a record's primary key.
 // A URL can point to a Defacto2 record download or detail page.
 // Returns a 0 if the URL is not valid.
 func DeobfuscateURL(rawURL string) int {

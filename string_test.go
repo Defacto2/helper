@@ -8,8 +8,7 @@ import (
 
 	"github.com/Defacto2/helper"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/nalgeon/be"
 )
 
 const (
@@ -207,85 +206,83 @@ func ExampleDetermine() {
 func TestCfUUID(t *testing.T) {
 	t.Parallel()
 	err := uuid.Validate(unid)
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	newid, err := helper.CfUUID(unid)
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 	err = uuid.Validate(newid)
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	newid, err = helper.CfUUID(cfid)
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 	err = uuid.Validate(newid)
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 }
 
 func TestByteCount(t *testing.T) {
 	t.Parallel()
 	s := helper.ByteCount(0)
-	assert.Equal(t, "0B", s)
+	be.Equal(t, "0B", s)
 	s = helper.ByteCount(1023)
-	assert.Equal(t, "1023B", s)
+	be.Equal(t, "1023B", s)
 	s = helper.ByteCount(1024)
-	assert.Equal(t, "1k", s)
+	be.Equal(t, "1k", s)
 	s = helper.ByteCount(-1026)
-	assert.Equal(t, "-1026B", s)
+	be.Equal(t, "-1026B", s)
 	s = helper.ByteCount(1024*1024*1024 - 1)
-	assert.Equal(t, "1024M", s)
+	be.Equal(t, "1024M", s)
 }
 
 func TestByteCountFloat(t *testing.T) {
 	t.Parallel()
 	s := helper.ByteCountFloat(0)
-	assert.Equal(t, "0 bytes", s)
+	be.Equal(t, "0 bytes", s)
 	s = helper.ByteCountFloat(1023)
-	assert.Equal(t, "1 kB", s)
+	be.Equal(t, "1 kB", s)
 	s = helper.ByteCountFloat(1024)
-	assert.Equal(t, "1 kB", s)
+	be.Equal(t, "1 kB", s)
 	s = helper.ByteCountFloat(-1026)
-	assert.Equal(t, "-1026 bytes", s)
+	be.Equal(t, "-1026 bytes", s)
 	s = helper.ByteCountFloat(1024*1024*1024 - 1)
-	assert.Equal(t, "1.1 GB", s)
+	be.Equal(t, "1.1 GB", s)
 	s = helper.ByteCountFloat(1024*1024*1024*1024 - 1)
-	assert.Equal(t, "1.1 TB", s)
+	be.Equal(t, "1.1 TB", s)
 	s = helper.ByteCountFloat(1024*1024*1024*1024*1024 - 1)
-	assert.Equal(t, "1.1 PB", s)
+	be.Equal(t, "1.1 PB", s)
 }
 
 func TestCapitalize(t *testing.T) {
 	t.Parallel()
 	s := helper.Capitalize("")
-	assert.Empty(t, s)
+	be.Equal(t, s, "")
 	s = helper.Capitalize("hello")
-	assert.Equal(t, "Hello", s)
+	be.Equal(t, "Hello", s)
 	s = helper.Capitalize("hello world")
-	assert.Equal(t, "Hello world", s)
+	be.Equal(t, "Hello world", s)
 	s = helper.Capitalize(strings.ToUpper("hello world!"))
-	assert.Equal(t, "Hello WORLD!", s)
+	be.Equal(t, "Hello WORLD!", s)
 }
 
 func TestDeleteDupe(t *testing.T) {
 	t.Parallel()
 	s := helper.DeleteDupe(nil...)
-	assert.Equal(t, []string{}, s)
+	be.Equal(t, []string{}, s)
 	s = helper.DeleteDupe([]string{"a"}...)
-	assert.Equal(t, []string{"a"}, s)
+	be.Equal(t, []string{"a"}, s)
 	s = helper.DeleteDupe([]string{"a", "b", "abcde"}...)
-	assert.Equal(t, []string{"a", "abcde", "b"}, s) // sorted
+	be.Equal(t, []string{"a", "abcde", "b"}, s) // sorted
 	s = helper.DeleteDupe([]string{"a", "b", "a"}...)
-	assert.Equal(t, []string{"a", "b"}, s)
+	be.Equal(t, []string{"a", "b"}, s)
 }
 
 func TestFmtSlice(t *testing.T) {
 	t.Parallel()
 	s := helper.FmtSlice("")
-	assert.Empty(t, s)
+	be.Equal(t, s, "")
 	s = helper.FmtSlice("a")
-	assert.Equal(t, "A", s)
+	be.Equal(t, "A", s)
 	s = helper.FmtSlice("a,b, abcde")
-	assert.Equal(t, "A, B, Abcde", s)
+	be.Equal(t, "A, B, Abcde", s)
 	s = helper.FmtSlice("a , b , abcde")
-	assert.Equal(t, "A, B, Abcde", s)
+	be.Equal(t, "A, B, Abcde", s)
 }
 
 func TestChrLast(t *testing.T) {
@@ -313,37 +310,37 @@ func TestChrLast(t *testing.T) {
 func TestMaxLineLength(t *testing.T) {
 	t.Parallel()
 	i := helper.MaxLineLength("")
-	assert.Equal(t, 0, i)
+	be.Equal(t, 0, i)
 	i = helper.MaxLineLength("a")
-	assert.Equal(t, 1, i)
+	be.Equal(t, 1, i)
 	i = helper.MaxLineLength("a\nb")
-	assert.Equal(t, 1, i)
+	be.Equal(t, 1, i)
 	i = helper.MaxLineLength("a\nabcdefghijklmnopqrstuvwxyz\nabcde.")
-	assert.Equal(t, 26, i)
+	be.Equal(t, 26, i)
 }
 
 func TestShortMonth(t *testing.T) {
 	t.Parallel()
 	s := helper.ShortMonth(0)
-	assert.Empty(t, s)
+	be.Equal(t, s, "")
 	s = helper.ShortMonth(1)
-	assert.Equal(t, "Jan", s)
+	be.Equal(t, "Jan", s)
 	s = helper.ShortMonth(12)
-	assert.Equal(t, "Dec", s)
+	be.Equal(t, "Dec", s)
 	s = helper.ShortMonth(13)
-	assert.Empty(t, s)
+	be.Equal(t, s, "")
 }
 
 func TestSplitAsSpace(t *testing.T) {
 	t.Parallel()
 	s := helper.SplitAsSpaces("")
-	assert.Empty(t, s)
+	be.Equal(t, s, "")
 	s = helper.SplitAsSpaces("a")
-	assert.Equal(t, "a", s)
+	be.Equal(t, "a", s)
 	s = helper.SplitAsSpaces("Hello world!")
-	assert.Equal(t, "Hello world!", s)
+	be.Equal(t, "Hello world!", s)
 	s = helper.SplitAsSpaces("HTTP Dir")
-	assert.Equal(t, "HTTP Directory", s)
+	be.Equal(t, "HTTP Directory", s)
 }
 
 func TestTruncFilename(t *testing.T) {
@@ -390,7 +387,7 @@ func TestTrimRoundBraket(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.want, helper.TrimRoundBraket(tt.s))
+			be.Equal(t, tt.want, helper.TrimRoundBraket(tt.s))
 		})
 	}
 }
@@ -422,11 +419,11 @@ func TestTrimPunct(t *testing.T) {
 func TestYears(t *testing.T) {
 	t.Parallel()
 	s := helper.Years(0, 0)
-	assert.Equal(t, "the year 0", s)
+	be.Equal(t, "the year 0", s)
 	s = helper.Years(1990, 1991)
-	assert.Equal(t, "the years 1990 and 1991", s)
+	be.Equal(t, "the years 1990 and 1991", s)
 	s = helper.Years(1990, 2000)
-	assert.Equal(t, "the years 1990 - 2000", s)
+	be.Equal(t, "the years 1990 - 2000", s)
 }
 
 // https://defacto2.net/f/ab27b2e
@@ -446,7 +443,7 @@ func TestDeobfuscateURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.want, helper.DeobfuscateURL(tt.rawURL))
+			be.Equal(t, tt.want, helper.DeobfuscateURL(tt.rawURL))
 		})
 	}
 }
@@ -454,21 +451,20 @@ func TestDeobfuscateURL(t *testing.T) {
 func TestSlug(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name      string
-		expect    string
-		assertion assert.ComparisonAssertionFunc
+		name   string
+		expect string
 	}{
-		{"the-group", "the_group", assert.Equal},
-		{"group1, group2", "group1*group2", assert.Equal},
-		{"group1 & group2", "group1-ampersand-group2", assert.Equal},
-		{"group 1, group 2", "group-1*group-2", assert.Equal},
-		{"GROUP 👾", "group", assert.Equal},
-		{"Mooñpeople", "moonpeople", assert.Equal},
+		{"the-group", "the_group"},
+		{"group1, group2", "group1*group2"},
+		{"group1 & group2", "group1-ampersand-group2"},
+		{"group 1, group 2", "group-1*group-2"},
+		{"GROUP 👾", "group"},
+		{"Mooñpeople", "moonpeople"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.expect, func(t *testing.T) {
 			t.Parallel()
-			tt.assertion(t, tt.expect, helper.Slug(tt.name))
+			be.Equal(t, helper.Slug(tt.name), tt.expect)
 		})
 	}
 }
@@ -496,7 +492,7 @@ func TestPageCount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.want, helper.PageCount(tt.args.sum, tt.args.limit))
+			be.Equal(t, tt.want, helper.PageCount(tt.args.sum, tt.args.limit))
 		})
 	}
 }
@@ -506,7 +502,7 @@ func TestObfuscates(t *testing.T) {
 	keys := []int{1, 1000, 1236346, -123, 0}
 	for _, key := range keys {
 		s := helper.ObfuscateID(int64(key))
-		assert.Equal(t, key, helper.DeobfuscateID(s))
+		be.Equal(t, key, helper.DeobfuscateID(s))
 	}
 }
 
@@ -523,12 +519,12 @@ func TestSearchTerm(t *testing.T) {
 		{"two", "one two", []string{"one two"}},
 		{"three", "one two three", []string{"one two three"}},
 		{"quotes", `"one two" three`, []string{"\"one two\" three"}},
-		{"two", "one,two", []string{"one", "two"}},
+		{"onetwo", "one,two", []string{"one", "two"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.want, helper.SearchTerm(tt.input))
+			be.Equal(t, tt.want, helper.SearchTerm(tt.input))
 		})
 	}
 }
@@ -536,11 +532,9 @@ func TestSearchTerm(t *testing.T) {
 func TestTitleize(t *testing.T) {
 	t.Parallel()
 	s := helper.Titleize("")
-	assert.Empty(t, s)
-
+	be.Equal(t, s, "")
 	s = helper.Titleize("hello")
-	assert.Equal(t, "Hello", s)
-
+	be.Equal(t, "Hello", s)
 	s = helper.Titleize("hello world, how are you?")
-	assert.Equal(t, "Hello World, How Are You?", s)
+	be.Equal(t, "Hello World, How Are You?", s)
 }

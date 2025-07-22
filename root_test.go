@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/Defacto2/helper"
-	"github.com/stretchr/testify/assert"
+	"github.com/nalgeon/be"
 )
 
 func TestDuplicater(t *testing.T) {
@@ -50,7 +50,7 @@ func TestDuplicater(t *testing.T) {
 				t.Errorf("Duplicater() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			assert.Equal(t, tt.want, i)
+			be.Equal(t, i, tt.want)
 		})
 		t.Cleanup(func() {
 			f.Close()
@@ -90,7 +90,7 @@ func TestSortName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := helper.SortNames("/", tt.in)
-			assert.Equal(t, tt.want, got)
+			be.Equal(t, got, tt.want)
 		})
 	}
 }
@@ -118,7 +118,7 @@ func TestUTF8(t *testing.T) {
 				t.Errorf("UTF8() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			assert.Equal(t, tt.want, got)
+			be.Equal(t, got, tt.want)
 		})
 	}
 }

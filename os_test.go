@@ -1,14 +1,15 @@
 package helper_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/Defacto2/helper"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/nalgeon/be"
 )
 
 const testDataFileCount = 3
@@ -51,170 +52,136 @@ func ExampleCount() {
 func TestCount(t *testing.T) {
 	t.Parallel()
 	dir, err := filepath.Abs("testdata")
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	i, err := helper.Count("")
-	require.Error(t, err)
-	assert.Equal(t, 0, i)
-
+	be.Err(t, err)
+	be.Equal(t, i, 0)
 	i, err = helper.Count("nosuchfile")
-	require.Error(t, err)
-	assert.Equal(t, 0, i)
-
+	be.Err(t, err)
+	be.Equal(t, i, 0)
 	i, err = helper.Count(dir)
-	require.NoError(t, err)
-	assert.Equal(t, testDataFileCount, i)
+	be.Err(t, err, nil)
+	be.Equal(t, i, testDataFileCount)
 }
 
 func TestDuplicate(t *testing.T) {
 	t.Parallel()
 	dir, err := filepath.Abs("testdata")
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	r, err := helper.Duplicate(dir, "")
-	require.Error(t, err)
-	assert.Empty(t, r)
+	be.Err(t, err)
+	be.Equal(t, r, 0)
 	r, err = helper.Duplicate(dir, dir)
-	require.Error(t, err)
-	assert.Empty(t, r)
-
+	be.Err(t, err)
+	be.Equal(t, r, 0)
 	file, err := filepath.Abs(filepath.Join("testdata", "TEST.DOC"))
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	r, err = helper.Duplicate(file, "")
-	require.Error(t, err)
-	assert.Empty(t, r)
-
+	be.Err(t, err)
+	be.Equal(t, r, 0)
 	r, err = helper.Duplicate("", file)
-	require.Error(t, err)
-	assert.Empty(t, r)
-
+	be.Err(t, err)
+	be.Equal(t, r, 0)
 	r, err = helper.Duplicate(file, file)
-	require.Error(t, err)
-	assert.Empty(t, r)
-
+	be.Err(t, err)
+	be.Equal(t, r, 0)
 	r, err = helper.Duplicate(file, t.TempDir())
-	require.Error(t, err)
-	assert.Empty(t, r)
-
+	be.Err(t, err)
+	be.Equal(t, r, 0)
 	dest := filepath.Join(t.TempDir(), "TEST.NFO")
 	written, err := helper.Duplicate(file, dest)
-	require.NoError(t, err)
-	assert.Equal(t, int64(13), written)
+	be.Err(t, err, nil)
+	be.Equal(t, int64(13), written)
 }
 
 func TestFiles(t *testing.T) {
 	t.Parallel()
 	dir, err := filepath.Abs("testdata")
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	r, err := helper.Files("")
-	require.Error(t, err)
-	assert.Empty(t, r)
-
+	be.Err(t, err)
+	be.Equal(t, len(r), 0)
 	r, err = helper.Files("nosuchfile")
-	require.Error(t, err)
-	assert.Empty(t, r)
-
+	be.Err(t, err)
+	be.Equal(t, len(r), 0)
 	r, err = helper.Files(dir)
-	require.NoError(t, err)
-	assert.Len(t, r, testDataFileCount)
+	be.Err(t, err, nil)
+	be.Equal(t, len(r), testDataFileCount)
 }
 
 func TestLines(t *testing.T) {
 	t.Parallel()
 	i, err := helper.Lines("")
-	require.Error(t, err)
-	assert.Equal(t, 0, i)
-
+	be.Err(t, err)
+	be.Equal(t, 0, i)
 	i, err = helper.Lines("nosuchfile")
-	require.Error(t, err)
-	assert.Equal(t, 0, i)
-
+	be.Err(t, err)
+	be.Equal(t, 0, i)
 	i, err = helper.Lines("")
-	require.Error(t, err)
-	assert.Equal(t, 0, i)
-
+	be.Err(t, err)
+	be.Equal(t, 0, i)
 	dir, err := filepath.Abs("testdata")
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 	name := filepath.Join(dir, "TEST.BMP")
 	i, err = helper.Lines(name)
-	require.Error(t, err)
-	assert.Equal(t, 0, i)
-
+	be.Err(t, err)
+	be.Equal(t, 0, i)
 	name = filepath.Join(dir, "PKZ80A1.TXT")
 	i, err = helper.Lines(name)
-	require.NoError(t, err)
-	assert.Equal(t, 175, i)
+	be.Err(t, err, nil)
+	be.Equal(t, 175, i)
 }
 
 func TestRenameFile(t *testing.T) {
 	t.Parallel()
 	const name = "test_rename_file"
-
 	err := helper.RenameFile("", "")
-	require.Error(t, err)
-
+	be.Err(t, err)
 	err = helper.RenameFile(t.TempDir(), "")
-	require.ErrorIs(t, err, helper.ErrFilePath)
-
+	be.True(t, errors.Is(err, helper.ErrFilePath))
 	abs := filepath.Join(t.TempDir(), name)
 	err = helper.Touch(abs)
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	err = helper.RenameFile(abs, "")
-	require.Error(t, err)
-
+	be.Err(t, err)
 	err = helper.RenameFile(abs, abs)
-	require.Error(t, err)
-
+	be.Err(t, err)
 	err = helper.RenameFile(abs, abs+"~")
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 }
 
 func TestRenameFileOW(t *testing.T) {
 	t.Parallel()
 	const name = "test_rename_file"
-
 	err := helper.RenameFileOW("", "")
-	require.Error(t, err)
-
+	be.Err(t, err)
 	err = helper.RenameFileOW(t.TempDir(), "")
-	require.ErrorIs(t, err, helper.ErrFilePath)
-
+	be.True(t, errors.Is(err, helper.ErrFilePath))
 	abs := filepath.Join(t.TempDir(), name)
 	err = helper.Touch(abs)
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	err = helper.RenameFileOW(abs, "")
-	require.Error(t, err)
-
+	be.Err(t, err)
 	err = helper.RenameFileOW(abs, abs)
-	require.Error(t, err)
-
+	be.Err(t, err)
 	err = helper.RenameFileOW(abs, abs+"~")
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 }
 
 func TestRenameCrossDevice(t *testing.T) {
 	t.Parallel()
 	const name = "test_rename_file"
-
 	err := helper.RenameCrossDevice("", "")
-	require.Error(t, err)
-
+	be.Err(t, err)
 	err = helper.RenameCrossDevice(t.TempDir(), "")
-	require.Error(t, err)
-
+	be.Err(t, err)
 	abs := filepath.Join(t.TempDir(), name)
 	err = helper.Touch(abs)
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	err = helper.RenameCrossDevice(abs, "")
-	require.Error(t, err)
-
+	be.Err(t, err)
 	err = helper.RenameCrossDevice(abs, abs+"~")
-	require.Error(t, err)
+	be.Err(t, err)
 }
 
 func TestSize(t *testing.T) {
@@ -222,19 +189,15 @@ func TestSize(t *testing.T) {
 	const name = "test_rename_file"
 	const none = int64(-1)
 	data := []byte("Hello, World!")
-
 	i := helper.Size("")
-	assert.Equal(t, none, i)
-
+	be.Equal(t, none, i)
 	i = helper.Size("nosuchfile")
-	assert.Equal(t, none, i)
-
+	be.Equal(t, none, i)
 	abs := filepath.Join(t.TempDir(), name)
 	x, err := helper.TouchW(abs, data...)
-	require.NoError(t, err)
-
+	be.Err(t, err, nil)
 	i = helper.Size(abs)
-	assert.Equal(t, int64(x), i)
+	be.Equal(t, int64(x), i)
 }
 
 func TestStrongIntegrity(t *testing.T) {
@@ -245,57 +208,58 @@ func TestStrongIntegrity(t *testing.T) {
 	data := []byte("Hello, World!")
 
 	s, err := helper.StrongIntegrity("")
-	require.Error(t, err)
-	assert.Empty(t, s)
+	be.Err(t, err)
+	be.True(t, s == "")
 
 	s, err = helper.StrongIntegrity("nosuchfile")
-	require.Error(t, err)
-	assert.Empty(t, s)
+	be.Err(t, err)
+	be.True(t, s == "")
 
 	abs := filepath.Join(t.TempDir(), name)
 	_, err = helper.TouchW(abs, data...)
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 
 	s, err = helper.StrongIntegrity(abs)
-	require.NoError(t, err)
-	assert.Equal(t, expected, s)
+	be.Err(t, err, nil)
+	be.Equal(t, s, expected)
 
 	r, err := os.OpenRoot(t.TempDir())
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 	defer r.Close()
 	_, err = helper.TouchWR(r, name, data...)
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 	s, err = helper.StrongIntegrityR(r, name)
-	require.NoError(t, err)
-	assert.Equal(t, expected, s)
+	be.Err(t, err, nil)
+	be.Equal(t, s, expected)
 
 	err = helper.TouchR(r, name)
-	require.Error(t, err)
+	be.Err(t, err)
 	_ = r.Remove(name)
 	err = helper.TouchR(r, name)
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 
 	err = helper.RenameRootOW(r, name, name)
-	require.Error(t, err)
+	be.Err(t, err)
 	err = helper.RenameRootOW(r, name, name+"abc")
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 
 	ok, err := helper.FileMatchR(r, name, name+"abc")
-	require.Error(t, err)
-	assert.False(t, ok)
+	be.Err(t, err)
+	be.True(t, !ok)
 
 	err = helper.TouchR(r, name)
-	require.NoError(t, err)
+	be.Err(t, err, nil)
 	ok, err = helper.FileMatchR(r, name, name+"abc")
-	require.NoError(t, err)
-	assert.True(t, ok)
+	be.Err(t, err, nil)
+	be.True(t, ok)
 }
 
 func TestOwner(t *testing.T) {
 	t.Parallel()
-
 	groups, username, err := helper.Owner()
-	require.NoError(t, err)
-	assert.NotEmpty(t, groups)
-	assert.NotEmpty(t, username)
+	be.Err(t, err, nil)
+	notEmpty := !reflect.ValueOf(groups).IsZero()
+	be.True(t, notEmpty)
+	notEmpty = !reflect.ValueOf(username).IsZero()
+	be.True(t, notEmpty)
 }

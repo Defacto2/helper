@@ -3,10 +3,13 @@ linters:
   default: all
   disable:
     - depguard
+    - exhaustruct
     - funlen
     - nlreturn
+    - noinlineerr
     - varnamelen
     - wsl
+    - wsl_v5
   exclusions:
     generated: lax
     presets:

@@ -17,7 +17,7 @@ func Duplicater(r *os.Root, name, newname string) (int64, error) {
 	return duplicater(r, name, newname, createNoTruncate)
 }
 
-// Duplicater copies the contents of the named file to a new file with the root.
+// DuplicaterOW copies the contents of the named file to a new file with the root.
 // The function will truncate and overwrite the newpath if it already exists.
 func DuplicaterOW(r *os.Root, name, newname string) (int64, error) {
 	const createTruncate = os.O_CREATE | os.O_WRONLY | os.O_TRUNC
@@ -86,7 +86,7 @@ func RenameRoot(r *os.Root, oldname, newname string) error {
 	return nil
 }
 
-// RenameFRenameRootOWileOW renames a file from oldname to newname.
+// RenameRootOW renames a file from oldname to newname.
 // It returns an error if the oldname does not exist or is a directory
 // or the rename fails.
 func RenameRootOW(r *os.Root, oldname, newname string) error {

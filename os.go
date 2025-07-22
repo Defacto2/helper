@@ -245,12 +245,7 @@ func fmErrs(err1, err2 error, name1, name2 string) (bool, error) {
 
 // Finds returns true if the name is found in the collection of names.
 func Finds(name string, names ...string) bool {
-	for _, n := range names {
-		if n == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(names, name)
 }
 
 // Integrity returns the sha384 hash of the named embed file.
@@ -295,7 +290,8 @@ func Lines(name string) (int, error) {
 		lines++
 	}
 
-	if err := scanner.Err(); err != nil {
+	err = scanner.Err()
+	if err != nil {
 		return 0, fmt.Errorf("integrity scanner.scan %w", err)
 	}
 
@@ -309,9 +305,11 @@ func MkContent(src string) (string, error) {
 	dir := TmpDir()
 	pattern := "artifact-content-" + name
 	dst := filepath.Join(dir, pattern)
-	if st, err := os.Stat(dst); err != nil {
+	st, err := os.Stat(dst)
+	if err != nil {
 		if os.IsNotExist(err) {
-			if err := os.MkdirAll(dst, DirWriteReadRead); err != nil {
+			err := os.MkdirAll(dst, DirWriteReadRead)
+			if err != nil {
 				return "", fmt.Errorf("mkcontent %w", err)
 			}
 			return dst, nil
@@ -356,10 +354,12 @@ func RenameFile(oldpath, newpath string) error {
 	if st.IsDir() {
 		return fmt.Errorf("rename file oldpath %w: %s", ErrFilePath, oldpath)
 	}
-	if _, err = os.Stat(newpath); err == nil {
+	_, err = os.Stat(newpath)
+	if err == nil {
 		return fmt.Errorf("rename file newpath %w: %s", ErrExistPath, newpath)
 	}
-	if err := os.Rename(oldpath, newpath); err != nil {
+	err = os.Rename(oldpath, newpath)
+	if err != nil {
 		var linkErr *os.LinkError
 		if errors.As(err, &linkErr) && linkErr.Err.Error() == "invalid cross-device link" {
 			return RenameCrossDevice(oldpath, newpath)
@@ -474,7 +474,7 @@ func Sum386(f *os.File) (string, error) {
 	return s, nil
 }
 
-// TempDir returns the temporary directory for the server,
+// TmpDir returns the temporary directory for the server,
 // which is a subdirectory of the system temp directory.
 func TmpDir() string {
 	path := filepath.Join(os.TempDir(), TempBase)
