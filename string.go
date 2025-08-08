@@ -79,7 +79,8 @@ func Capitalize(s string) string {
 	const sep = " "
 	caser := cases.Title(language.English)
 	x := strings.Split(s, sep)
-	if len(x) == 1 {
+	const req = 2
+	if len(x) < req {
 		return caser.String(s)
 	}
 	return caser.String(x[0]) + sep + strings.Join(x[1:], sep)
@@ -275,28 +276,28 @@ func PageCount(sum, limit int) int {
 
 // Released returns a string release date as year, month, day int16 values.
 // The string is expected to be in the format "2024-07-15" or "2024-07" or "2024".
-func Released(s string) (int16, int16, int16) { //nolint:cyclop
+func Released(s string) (int16, int16, int16) {
 	dates := strings.Split(s, "-") // "2024-07-15"
-	l := len(dates)
-	if l == 0 || l > 3 {
-		return 0, 0, 0
-	}
 	const (
 		y = 0
 		m = 1
 		d = 2
 	)
+	if len(dates) < 1 {
+		return 0, 0, 0
+	}
 	var year, month, day int16
-	if yv, _ := strconv.ParseInt(dates[y], 10, 16); yv > 0 && yv <= math.MaxInt16 {
+	yv, _ := strconv.ParseInt(dates[y], 10, 16)
+	if yv > 0 && yv <= math.MaxInt16 {
 		year = int16(yv)
 	}
-	if l < m+1 {
+	if len(dates) < m+1 {
 		return year, 0, 0
 	}
 	if mv, _ := strconv.ParseInt(dates[m], 10, 16); mv > 0 && mv <= 12 {
 		month = int16(mv)
 	}
-	if l < d+1 {
+	if len(dates) < d+1 {
 		return year, month, 0
 	}
 	if dv, _ := strconv.ParseInt(dates[d], 10, 16); dv > 0 && dv <= 31 {

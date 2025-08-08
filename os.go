@@ -335,7 +335,7 @@ func Owner() ([]string, string, error) {
 	groups := make([]string, len(grps))
 	for i, id := range grps {
 		group, err := user.LookupId(id)
-		if err != nil {
+		if err != nil || group == nil {
 			continue
 		}
 		groups[i] = group.Name

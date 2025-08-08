@@ -70,7 +70,7 @@ const LoggerKey contextKey = "logger"
 // If the logger is not found, it panics.
 //
 // Deprecated: As of release v1.5, this function returns nil.
-func Logger(ctx context.Context) any {
+func Logger(_ context.Context) any {
 	return nil
 }
 
@@ -294,6 +294,7 @@ func LocalHosts() ([]string, error) {
 
 // Ping sends a HTTP GET request to the provided URI and returns the status code and size of the response.
 func Ping(uri string) (int, int64, error) {
+	const msg = "helper ping"
 	client := http.Client{
 		Timeout:       Timeout,
 		Transport:     nil,
@@ -303,17 +304,20 @@ func Ping(uri string) (int, int64, error) {
 	ctx := context.Background()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return http.StatusInternalServerError, 0, fmt.Errorf("helper ping new request %w: %s", err, uri)
+		return http.StatusInternalServerError, 0, fmt.Errorf("%s new request %w: %s", msg, err, uri)
 	}
 	req.Header.Set("User-Agent", UserAgent)
 	res, err := client.Do(req)
 	if err != nil {
-		return http.StatusInternalServerError, 0, fmt.Errorf("helper ping client do %w: %s", err, uri)
+		return http.StatusInternalServerError, 0, fmt.Errorf("%s client do %w: %s", msg, err, uri)
+	}
+	if res == nil {
+		return http.StatusInternalServerError, 0, fmt.Errorf("%s: %w", msg, http.ErrBodyNotAllowed)
 	}
 	defer res.Body.Close()
 	size, err := io.Copy(io.Discard, res.Body)
 	if err != nil {
-		return http.StatusInternalServerError, 0, fmt.Errorf("helper ping body copy %w: %s", err, uri)
+		return http.StatusInternalServerError, 0, fmt.Errorf("%s body copy %w: %s", msg, err, uri)
 	}
 	return res.StatusCode, size, nil
 }
