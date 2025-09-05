@@ -135,6 +135,7 @@ func Day(i int) bool {
 //	"👾"	// [240 159 145 190] unicode.UTF8
 //	"≡ƒæ╛"	// [240 159 145 190] charmap.CodePage437
 func Determine(r io.Reader) encoding.Encoding { //nolint:ireturn
+func determine(sl *slog.Logger, r io.Reader) encoding.Encoding { //nolint:ireturn,cyclop
 	if r == nil {
 		return nil
 	}
