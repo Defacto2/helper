@@ -8,17 +8,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
+	"maps"
 	"math/big"
 	"net"
 	"net/http"
 	"os"
 	"reflect"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
-	"golang.org/x/text/encoding/unicode"
+	uni "golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/unicode/runenames"
 )
 
 const (
@@ -135,40 +139,99 @@ func Day(i int) bool {
 //	"👾"	// [240 159 145 190] unicode.UTF8
 //	"≡ƒæ╛"	// [240 159 145 190] charmap.CodePage437
 func Determine(r io.Reader) encoding.Encoding { //nolint:ireturn
+	sl := slog.New(slog.DiscardHandler)
+	return determine(sl, r)
+}
+
+// DetermineS functions the same as Determine, however you can provide a
+// slog logger to track character or sequence matches for false-positive
+// discoveries and other possible problems.
+func DetermineS(sl *slog.Logger, r io.Reader) encoding.Encoding { //nolint:ireturn
+	if sl == nil {
+		sl = slog.New(slog.DiscardHandler)
+	}
+	return determine(sl, r)
+}
+
 func determine(sl *slog.Logger, r io.Reader) encoding.Encoding { //nolint:ireturn,cyclop
+	const msg = "helper determine r encoding"
+	if sl == nil {
+		sl = slog.New(slog.DiscardHandler)
+	}
 	if r == nil {
+		sl.Info(msg, slog.Bool("empty reader", true))
 		return nil
 	}
 	p, err := io.ReadAll(r)
 	if err != nil {
+		sl.Info(msg, slog.Any("readall rune", err))
 		return nil
 	}
-	if e := chars(p); e != nil {
+	sl.Info(msg, slog.Int("bytes", len(p)))
+	if e := suppliment(sl, p); e != nil {
 		return e
 	}
-	if e := sequences(p); e != nil {
+	if e := chars(sl, p); e != nil {
+		return e
+	}
+	if e := sequences(sl, p); e != nil {
 		return e
 	}
 	// Check for Unicode multi-byte characters
 	// If an unknown rune is encountered then assume the encoding is
 	// using a legacy 8-bit code page encoding, such as CP-437.
+	tick := time.Now()
 	for _, r := range bytes.Runes(p) {
 		if utf8.RuneLen(r) > 1 {
-			if r == unknownRune {
+			switch {
+			// we use this switch to handle any obvious false-positives
+			case unicode.Is(unicode.Arabic, r):
+				sl.Info(msg, slog.Bool("arabic rune", true),
+					slog.Duration("time", time.Since(tick)))
+				// '┌┐' cp437 char sequence gets mistaken as a multi-byte Arabic ڿ script
+				return charmap.CodePage437
+			case r == unknownRune:
+				sl.Info(msg, slog.Bool("unknown rune", true),
+					slog.Duration("time", time.Since(tick)))
 				return charmap.ISO8859_1
 			}
-			return unicode.UTF8
+			sl.Info(msg, slog.Bool("multi-byte rune", true),
+				slog.Duration("time", time.Since(tick)))
+			return uni.UTF8
 		}
 	}
+	sl.Info(msg, slog.Bool("latin-1", true),
+		slog.Duration("time", time.Since(tick)))
 	return charmap.ISO8859_1
+}
+
+// Suppliment returns the encoding of UTF8 if p contains the following
+// Unicode characters.
+//
+//	•─█
+func suppliment(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
+	const msg = "helper determine p unicode suppliments"
+	const bullet = '\u2022'    // •
+	const lightHoz = '\u2500'  // ─
+	const fullBlock = '\u2588' // █
+	f := func(r rune) bool {
+		return r == lightHoz || r == bullet || r == fullBlock
+	}
+	if bytes.ContainsFunc(p, f) {
+		sl.Info(msg, slog.Bool("found match", true))
+		return uni.UTF8
+	}
+	return nil
 }
 
 // Chars returns the encoding based on the presence of common CP-437 or ISO-8859-1 characters.
 // A nil encoding is returned if no encoding is determined.
 //
 // This should be done before checking for multi-byte characters, which could be misinterpreted as UTF-8 runes.
-func chars(p []byte) encoding.Encoding { //nolint:ireturn
-	for _, char := range p {
+func chars(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
+	const msg = "helper determine p chars"
+	tick := time.Now()
+	for i, char := range p {
 		switch {
 		case char == escape:
 			// escape control character commonly used in ANSI escaped sequences
@@ -189,13 +252,24 @@ func chars(p []byte) encoding.Encoding { //nolint:ireturn
 		// 	continue
 		case char >= undefinedStart && char <= undefinedEnd:
 			// unused ASCII, which we can probably assumed to be CP-437
+			logChar(sl, msg, tick, i, char)
 			return charmap.CodePage437
 		case char >= controlStart && char <= controlEnd:
 			// ASCII control characters, which we can probably assumed to be CP-437 glyphs
+			logChar(sl, msg, tick, i, char)
 			return charmap.CodePage437
 		}
 	}
+	sl.Info(msg, slog.Duration("time", time.Since(tick)))
 	return nil
+}
+
+func logChar(sl *slog.Logger, msg string, tick time.Time, i int, char byte) {
+	r := rune(char)
+	sl.Info(msg, slog.String("character",
+		fmt.Sprintf("%d> %s 0x%X %d %s %s", i,
+			string(char), char, char, string(r), runenames.Name(r))),
+		slog.Duration("time", time.Since(tick)))
 }
 
 // Sequences returns the encoding based on the presence of common CP-437 or ISO-8859-1 character sequences.
@@ -203,45 +277,55 @@ func chars(p []byte) encoding.Encoding { //nolint:ireturn
 // unique to the CP-437 encoding.
 //
 // This should be done before checking for multi-byte characters, which could be misinterpreted as UTF-8 runes.
-func sequences(p []byte) encoding.Encoding { //nolint:ireturn
+func sequences(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
+	const msg = "helper determine p seqs"
 	const (
-		shadeLight     = 0xb0 // ░
-		shadeMedium    = 0xb1 // ▒
-		shadeDark      = 0xb2 // ▓
-		singleHorizBar = 0xc4 // ─
-		doubleHorizBar = 0xcd // ═
-		fullBlock      = 0xdb // █
-		lowerHalfBlock = 0xdc // ▄
-		upperHalfBlock = 0xdf // ▀
-		interpunct     = 0xfa // ·
+		shadeLight     = 0xb0 // ░ ~ °
+		shadeMedium    = 0xb1 // ▒ ~ ±
+		shadeDark      = 0xb2 // ▓ ~ ²
+		singleHorizBar = 0xc4 // ─ ~ Ä
+		doubleHorizBar = 0xcd // ═ ~ Í
+		fullBlock      = 0xdb // █ ~ Û
+		lowerHalfBlock = 0xdc // ▄ ~ Ü
+		upperHalfBlock = 0xdf // ▀ ~ ß
+		interpunct     = 0xfa // · ~ ú
+		bulletpoint    = 0xf9 // • ~ ù
 	)
-	chars := []byte{
-		lowerHalfBlock,
-		upperHalfBlock,
-		doubleHorizBar,
-		singleHorizBar,
-		fullBlock,
-		interpunct,
-		shadeLight,
-		shadeMedium,
-		shadeDark,
+	// four and pairs are counts of unlikely sequences of characters
+	// for example, in normal use the degree sign is appended to digits
+	// and wouldn't be used as a pair "20°°"
+	const four, pair = 4, 2
+	matches := map[uint8]int{
+		shadeLight:     pair,
+		shadeMedium:    pair,
+		shadeDark:      pair,
+		singleHorizBar: pair,
+		doubleHorizBar: four,
+		fullBlock:      four,
+		lowerHalfBlock: four,
+		upperHalfBlock: pair,
+		interpunct:     pair,
+		bulletpoint:    pair,
 	}
-	for _, char := range chars {
-		const count = 4
+	tick := time.Now()
+	for char, count := range maps.All(matches) {
 		subslice := bytes.Repeat([]byte{char}, count)
 		if bytes.Contains(p, subslice) {
+			sl.Info(msg,
+				slog.String("matched subslice", string(subslice)),
+				slog.Duration("time", time.Since(tick)))
 			return charmap.CodePage437
 		}
 	}
 	guillemets := []byte{0xae, 0xaf} // «»
 	if bytes.Contains(p, guillemets) {
+		sl.Info(msg,
+			slog.Bool("guillements pair", true),
+			slog.Duration("time", time.Since(tick)))
 		return charmap.CodePage437
 	}
-	const bulletpoint = 0xf9 // ••
-	bulletpoints := []byte{bulletpoint, bulletpoint}
-	if bytes.Contains(p, bulletpoints) {
-		return charmap.CodePage437
-	}
+	sl.Info(msg,
+		slog.Duration("time", time.Since(tick)))
 	return nil
 }
 
