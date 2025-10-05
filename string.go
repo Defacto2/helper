@@ -3,6 +3,7 @@ package helper
 // Package file string.go contains the helper functions for string operations.
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"net/url"
@@ -219,6 +220,116 @@ func MaxLineLength(s string) int {
 		}
 	}
 	return maxLen
+}
+
+const (
+	Chrs25 = 25
+	Chrs29 = 29
+)
+
+// Mask runs a performant scan of the bytes and replaces any matching
+// serials or key sequences with a sequence of 0 characters of the same length.
+//
+// Currently the following patterns are matched
+//
+//   - 12345-67890-ABCDE-FGHIJ-LMNOP
+//   - 1234-5678-ABCD-EFGH-IJKL-MNOP
+//   - 1234-567890A-BCDEFGH-IJKL
+//
+// For example:
+// "Hello world B014-56789A-BCDEFGH-G45X example".
+//
+// Would be masked with:
+// "Hello world 000000000000000000000000 example".
+func Mask(p ...byte) []byte {
+	out := bytes.NewBuffer(nil)
+	i := 0
+	for i < len(p) {
+		switch {
+		case serial5x5(i, p), serial6x4(i, p):
+			mask := strings.Repeat("0", Chrs29)
+			out.WriteString(mask)
+			i += Chrs29
+			continue
+		case serial4774(i, p):
+			mask := strings.Repeat("0", Chrs25)
+			out.WriteString(mask)
+			i += Chrs25
+		}
+		out.WriteByte(p[i])
+		i++
+	}
+	return out.Bytes()
+}
+
+func matcher(b []byte, i, n int) bool {
+	if i+n > len(b) {
+		return false
+	}
+	for k := range n {
+		c := b[i+k]
+		if ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') {
+			return true
+		}
+	}
+	return false
+}
+
+// serial5x5 matches 12345-67890-ABCDE-FGHIJ-LMNOP.
+//
+//nolint:mnd,cyclop
+func serial5x5(i int, p []byte) bool {
+	if i+29 <= len(p) &&
+		matcher(p, i, 5) &&
+		p[i+5] == '-' &&
+		matcher(p, i+6, 5) &&
+		p[i+11] == '-' &&
+		matcher(p, i+12, 5) &&
+		p[i+17] == '-' &&
+		matcher(p, i+18, 5) &&
+		p[i+23] == '-' &&
+		matcher(p, i+24, 5) {
+		return true
+	}
+	return false
+}
+
+// serial6x4 matches 1234-5678-ABCD-EFGH-IJKL-MNOP.
+//
+//nolint:mnd,cyclop
+func serial6x4(i int, p []byte) bool {
+	if i+29 <= len(p) &&
+		matcher(p, i, 4) &&
+		p[i+4] == '-' &&
+		matcher(p, i+5, 4) &&
+		p[i+9] == '-' &&
+		matcher(p, i+10, 4) &&
+		p[i+14] == '-' &&
+		matcher(p, i+15, 4) &&
+		p[i+19] == '-' &&
+		matcher(p, i+20, 4) &&
+		p[i+24] == '-' &&
+		matcher(p, i+25, 4) {
+		return true
+	}
+	return false
+}
+
+// serial4774 matches 1234-567890A-BCDEFGH-IJKL.
+//
+//nolint:mnd
+func serial4774(i int, p []byte) bool {
+	if i+25 <= len(p) &&
+		matcher(p, i, 4) &&
+		p[i+4] == '-' &&
+		matcher(p, i+5, 7) &&
+		p[i+12] == '-' &&
+		matcher(p, i+13, 7) &&
+		p[i+20] == '-' &&
+		matcher(p, i+21, 4) {
+		return true
+	}
+	return false
 }
 
 // ObfuscateID the primary key of a record as a string that is used as a URL param or path.

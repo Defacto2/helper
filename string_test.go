@@ -1,7 +1,9 @@
 package helper_test
 
 import (
+	"bytes"
 	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
 	"time"
@@ -537,4 +539,60 @@ func TestTitleize(t *testing.T) {
 	be.Equal(t, "Hello", s)
 	s = helper.Titleize("hello world, how are you?")
 	be.Equal(t, "Hello World, How Are You?", s)
+}
+
+func TestMask(t *testing.T) {
+	m1 := []byte("1234-5678-ABCD-EFGH-IJKL-MNOP")
+	m2 := []byte("12345-67890-ABCDE-FGHIJ-LMNOP")
+	m3 := []byte("12345-67890-abcde-fghij-lmnop")
+	m4 := []byte("1234-567890A-BCDEFGH-IJKL")
+	want29 := []byte(strings.Repeat("0", helper.Chrs29))
+	want25 := []byte(strings.Repeat("0", helper.Chrs25))
+	t.Parallel()
+	// too short
+	p := []byte("this string is too short")
+	x := helper.Mask(p...)
+	be.Equal(t, p, x)
+	// no key in string
+	p = random(1000)
+	x = helper.Mask(p...)
+	be.Equal(t, p, x)
+	// 6 multiples of 4 chars match
+	s := [][]byte{p, m1, p}
+	x = bytes.Join(s, []byte(" "))
+	be.True(t, bytes.Contains(x, m1))
+	x = helper.Mask(x...)
+	be.True(t, !bytes.Contains(x, m1))
+	be.True(t, bytes.Contains(x, want29))
+	// 5 multiples of 5 chars match
+	s = [][]byte{p, m2, p}
+	x = bytes.Join(s, []byte(" "))
+	be.True(t, bytes.Contains(x, m2))
+	x = helper.Mask(x...)
+	be.True(t, !bytes.Contains(x, m2))
+	be.True(t, bytes.Contains(x, want29))
+	// 5 multiples of 5 lowercase chars match
+	s = [][]byte{p, m3, p}
+	x = bytes.Join(s, []byte(" "))
+	be.True(t, bytes.Contains(x, m3))
+	x = helper.Mask(x...)
+	be.True(t, bytes.Contains(x, m3))
+	be.True(t, !bytes.Contains(x, want29))
+	// 4x7x7x4 chars match
+	s = [][]byte{p, m4, p}
+	x = bytes.Join(s, []byte(" "))
+	be.True(t, bytes.Contains(x, m4))
+	x = helper.Mask(x...)
+	be.True(t, !bytes.Contains(x, m4))
+	be.True(t, bytes.Contains(x, want25))
+}
+
+const chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+func random(n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))] //nolint:gosec
+	}
+	return b
 }

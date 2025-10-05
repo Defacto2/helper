@@ -30,8 +30,8 @@ const (
 	Eraseline = "\x1b[2K"
 	// Timeout is the HTTP client timeout.
 	Timeout = 5 * time.Second
-	// User-Agent to send with the HTTP request.
-	UserAgent = "Defacto2 2024 app under construction (thanks!)"
+	// UserAgent to send with the HTTP request.
+	UserAgent = "Defacto2 website (thanks!)"
 
 	byteUnits = "kMGTPE" // byteUnits is a list of units used for formatting byte sizes
 
