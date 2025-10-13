@@ -263,13 +263,20 @@ func Mask(p ...byte) []byte {
 }
 
 func matcher(b []byte, i, n int) bool {
-	if i+n > len(b) {
+	if i < 0 || n <= 0 || i+n > len(b) {
 		return false
 	}
 	for k := range n {
 		c := b[i+k]
-		if ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') {
+		switch {
+		case c >= '0' && c <= '9':
 			return true
+		case c >= 'A' && c <= 'Z':
+			return true
+		case c >= 'a' && c <= 'z':
+			return true
+		default:
+			return false
 		}
 	}
 	return false

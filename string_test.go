@@ -546,6 +546,8 @@ func TestMask(t *testing.T) {
 	m2 := []byte("12345-67890-ABCDE-FGHIJ-LMNOP")
 	m3 := []byte("12345-67890-abcde-fghij-lmnop")
 	m4 := []byte("1234-567890A-BCDEFGH-IJKL")
+	x1 := []byte("1234-5678-ABCD-EFGH-IJKLZMNOP")
+	x2 := []byte("  A -5678-ABCD-EFGH-IJKL-MNOP")
 	want29 := []byte(strings.Repeat("0", helper.Chrs29))
 	want25 := []byte(strings.Repeat("0", helper.Chrs25))
 	t.Parallel()
@@ -576,8 +578,8 @@ func TestMask(t *testing.T) {
 	x = bytes.Join(s, []byte(" "))
 	be.True(t, bytes.Contains(x, m3))
 	x = helper.Mask(x...)
-	be.True(t, bytes.Contains(x, m3))
-	be.True(t, !bytes.Contains(x, want29))
+	be.True(t, !bytes.Contains(x, m3))
+	be.True(t, bytes.Contains(x, want29))
 	// 4x7x7x4 chars match
 	s = [][]byte{p, m4, p}
 	x = bytes.Join(s, []byte(" "))
@@ -585,6 +587,16 @@ func TestMask(t *testing.T) {
 	x = helper.Mask(x...)
 	be.True(t, !bytes.Contains(x, m4))
 	be.True(t, bytes.Contains(x, want25))
+	s = [][]byte{p, x1, p}
+	x = bytes.Join(s, []byte(" "))
+	be.True(t, bytes.Contains(x, x1))
+	x = helper.Mask(x...)
+	be.True(t, bytes.Contains(x, x1))
+	s = [][]byte{p, x2, p}
+	x = bytes.Join(s, []byte(" "))
+	be.True(t, bytes.Contains(x, x2))
+	x = helper.Mask(x...)
+	be.True(t, bytes.Contains(x, x2))
 }
 
 const chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
