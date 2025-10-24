@@ -230,6 +230,7 @@ func suppliment(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
 // This should be done before checking for multi-byte characters, which could be misinterpreted as UTF-8 runes.
 func chars(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
 	const msg = "helper determine p chars"
+	const bullet, interpunct = 0xf9, 0xfa
 	tick := time.Now()
 	for i, char := range p {
 		switch {
@@ -257,6 +258,8 @@ func chars(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
 		case char >= controlStart && char <= controlEnd:
 			// ASCII control characters, which we can probably assumed to be CP-437 glyphs
 			logChar(sl, msg, tick, i, char)
+			return charmap.CodePage437
+		case char == interpunct, char == bullet:
 			return charmap.CodePage437
 		}
 	}
