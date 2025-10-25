@@ -223,6 +223,7 @@ func MaxLineLength(s string) int {
 }
 
 const (
+	Chrs24 = 24
 	Chrs25 = 25
 	Chrs29 = 29
 )
@@ -235,6 +236,11 @@ const (
 //   - 12345-67890-ABCDE-FGHIJ-LMNOP
 //   - 1234-5678-ABCD-EFGH-IJKL-MNOP
 //   - 1234-567890A-BCDEFGH-IJKL
+//   - 1234 1240000 1234000 0000
+//   - 1234-5678-ABCD-EFGH-IJKL
+//
+// In addition telephone numbers matching the North American Numbering Plan
+// will have two digits replaced by XX.
 //
 // For example:
 // "Hello world B014-56789A-BCDEFGH-G45X example".
@@ -250,11 +256,18 @@ func Mask(p ...byte) []byte {
 			mask := strings.Repeat("0", Chrs29)
 			out.WriteString(mask)
 			i += Chrs29
-			continue
-		case serial4774(i, p):
+		case serial4774(i, p), digit4774(i, p):
 			mask := strings.Repeat("0", Chrs25)
 			out.WriteString(mask)
 			i += Chrs25
+		case serial5x4(i, p):
+			mask := strings.Repeat("0", Chrs24)
+			out.WriteString(mask)
+			i += Chrs24
+		case nanp(i, p):
+			mask := fmt.Sprintf("%sXX%s", p[i:i+8], p[i+10:i+12])
+			out.WriteString(mask)
+			i += 12
 		}
 		out.WriteByte(p[i])
 		i++
@@ -282,6 +295,39 @@ func matcher(b []byte, i, n int) bool {
 	return false
 }
 
+func digiter(b []byte, i, n int) bool {
+	if i < 0 || n <= 0 || i+n > len(b) {
+		return false
+	}
+	for k := range n {
+		c := b[i+k]
+		switch {
+		case c >= '0' && c <= '9':
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+// nanp matches an areacode and a 7 digit number, ie 305-555-1234.
+// However, area codes below 200 are not matched, ie 199-555-1234.
+//
+//nolint:mnd,cyclop
+func nanp(i int, p []byte) bool {
+	if i+12 <= len(p) &&
+		digiter(p, i, 3) &&
+		p[i] >= '2' &&
+		p[i+3] == '-' &&
+		digiter(p, i+4, 3) &&
+		p[i+7] == '-' &&
+		digiter(p, i+8, 4) {
+		return true
+	}
+	return false
+}
+
 // serial5x5 matches 12345-67890-ABCDE-FGHIJ-LMNOP.
 //
 //nolint:mnd,cyclop
@@ -296,6 +342,26 @@ func serial5x5(i int, p []byte) bool {
 		matcher(p, i+18, 5) &&
 		p[i+23] == '-' &&
 		matcher(p, i+24, 5) {
+		return true
+	}
+	return false
+}
+
+// serial5x4 matches 1234-5678-ABCD-EFGH-IJKL.
+//
+//nolint:mnd,cyclop
+func serial5x4(i int, p []byte) bool {
+	if i+25 <= len(p) &&
+		matcher(p, i, 4) &&
+		p[i+4] == '-' &&
+		matcher(p, i+5, 4) &&
+		p[i+9] == '-' &&
+		matcher(p, i+10, 4) &&
+		p[i+14] == '-' &&
+		matcher(p, i+15, 4) &&
+		p[i+19] == '-' &&
+		matcher(p, i+20, 4) &&
+		(p[i+24] == ' ' || p[i+24] == '\n') { // avoid false positives with serial6x4 results
 		return true
 	}
 	return false
@@ -334,6 +400,23 @@ func serial4774(i int, p []byte) bool {
 		matcher(p, i+13, 7) &&
 		p[i+20] == '-' &&
 		matcher(p, i+21, 4) {
+		return true
+	}
+	return false
+}
+
+// digits4774 matches 1234 1234567 1234567 1234.
+//
+//nolint:mnd
+func digit4774(i int, p []byte) bool {
+	if i+25 <= len(p) &&
+		digiter(p, i, 4) &&
+		p[i+4] == ' ' &&
+		digiter(p, i+5, 7) &&
+		p[i+12] == ' ' &&
+		digiter(p, i+13, 7) &&
+		p[i+20] == ' ' &&
+		digiter(p, i+21, 4) {
 		return true
 	}
 	return false
