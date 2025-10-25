@@ -275,6 +275,7 @@ func Mask(p ...byte) []byte {
 	return out.Bytes()
 }
 
+//nolint:cyclop
 func matcher(b []byte, i, n int) bool {
 	if i < 0 || n <= 0 || i+n > len(b) {
 		return false
@@ -314,7 +315,7 @@ func digiter(b []byte, i, n int) bool {
 // nanp matches an areacode and a 7 digit number, ie 305-555-1234.
 // However, area codes below 200 are not matched, ie 199-555-1234.
 //
-//nolint:mnd,cyclop
+//nolint:mnd
 func nanp(i int, p []byte) bool {
 	if i+12 <= len(p) &&
 		digiter(p, i, 3) &&
