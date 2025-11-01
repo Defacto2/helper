@@ -239,8 +239,11 @@ const (
 //   - 1234 1240000 1234000 0000
 //   - 1234-5678-ABCD-EFGH-IJKL
 //
-// In addition telephone numbers matching the North American Numbering Plan
-// will have two digits replaced by XX.
+// In addition telephone numbers matching seven digit (or more) phone numbers
+// will have two digits replaced by $$.
+//
+// And finally, there's are collection words and combos that will be masked with xxx.
+// For example, any occurrence of the word "password" will be masked as "pxxxxxx".
 //
 // For example:
 // "Hello world B014-56789A-BCDEFGH-G45X example".
@@ -264,10 +267,17 @@ func Mask(p ...byte) []byte {
 			mask := strings.Repeat("0", Chrs24)
 			out.WriteString(mask)
 			i += Chrs24
-		case nanp(i, p):
-			mask := fmt.Sprintf("%sXX%s", p[i:i+8], p[i+10:i+12])
+		case Phone(i, p):
+			// 123-5678
+			mask := fmt.Sprintf("%s$$%s", p[i:i+5], p[i+7:i+7])
 			out.WriteString(mask)
-			i += 12
+			i += 7
+		default:
+			if x := IndexTerm(i, p); x > 0 {
+				mask := fmt.Sprintf("%s%s", p[i:i+1], strings.Repeat("x", x-1))
+				out.WriteString(mask)
+				i += x
+			}
 		}
 		out.WriteByte(p[i])
 		i++
@@ -275,8 +285,76 @@ func Mask(p ...byte) []byte {
 	return out.Bytes()
 }
 
+// MaskTerm replaces a predefined list of words and combinations with a series of x characters.
+// For example, any occurrence of the word "password" will be masked as "pxxxxxx".
+//
+// MaskTerm should not be used with [Mask] as it duplicates functionality.
+func MaskTerm(p ...byte) []byte {
+	out := bytes.NewBuffer(nil)
+	i := 0
+	for i < len(p) {
+		if x := IndexTerm(i, p); x > 0 {
+			mask := fmt.Sprintf("%s%s", p[i:i+1], strings.Repeat("x", x-1))
+			out.WriteString(mask)
+			i += x
+		}
+		out.WriteByte(p[i])
+		i++
+	}
+	return out.Bytes()
+}
+
+// IndexTerm searches the p byte array for a predefined list of words and combinations.
+// Any matches will return the location index of the match.
+// If no matches are found a 0 is returned.
+//
+// The predefined list are items that can trigger online bots.
+func IndexTerm(i int, p []byte) int {
+	// these terms are intentionally fragmented
+	matches := []string{
+		// generic
+		"cd-k" + "ey", "cd" + " key", "c" +
+			"racke" + "d", "key " + "code", "k" +
+			"ey file", "k" +
+			"eyfile", "k" +
+			"ey gen", "k" +
+			"eygen", "k" +
+			"eymaker", "l" +
+			"ice" + "nse " + "code", "pas" +
+			"sword", "s" + "er" +
+			"ial",
+		// brands
+		"m" + "icro" +
+			"soft", "c" +
+			"orel", "s" +
+			"pacial audio " +
+			"solution", "p" +
+			"arallels " +
+			"inc", "p" + "aint" +
+			"shop",
+		"a" +
+			"dobe", "a" +
+			"cronis", "s" + "am " + "b" + "road" +
+			"caster", "n" +
+			"intend" +
+			"o", "s" +
+			"ony",
+	}
+	for _, match := range matches {
+		l := len(match) // 6
+		if i+l <= len(p) && bytes.EqualFold(p[i+0:i+l], []byte(match)) {
+			return l
+		}
+	}
+	return 0
+}
+
+// Alpha09 returns true if the slice of bytes exclusively contains
+// alphanumeric characters. Everything else including punctuation returns false.
+// i is the index position and n is the number of bytes to match.
+//
 //nolint:cyclop
-func matcher(b []byte, i, n int) bool {
+func Alpha09(b []byte, i, n int) bool {
 	if i < 0 || n <= 0 || i+n > len(b) {
 		return false
 	}
@@ -284,46 +362,58 @@ func matcher(b []byte, i, n int) bool {
 		c := b[i+k]
 		switch {
 		case c >= '0' && c <= '9':
-			return true
+			continue
 		case c >= 'A' && c <= 'Z':
-			return true
+			continue
 		case c >= 'a' && c <= 'z':
-			return true
+			continue
 		default:
 			return false
 		}
 	}
-	return false
+	return true
 }
 
-func digiter(b []byte, i, n int) bool {
+// Digits returns true if the slice of bytes is a sequence of digits.
+// i is the index position and n is the number of bytes to match.
+func Digits(b []byte, i, n int) bool {
 	if i < 0 || n <= 0 || i+n > len(b) {
 		return false
 	}
 	for k := range n {
 		c := b[i+k]
-		switch {
-		case c >= '0' && c <= '9':
-			return true
-		default:
+		if c < '0' || c > '9' {
 			return false
 		}
+	}
+	return true
+}
+
+// Phone matches a 7 digit telephone number, ie "555-1234".
+//
+//nolint:mnd
+func Phone(i int, p []byte) bool {
+	if i+7 <= len(p) &&
+		Digits(p, i, 3) &&
+		p[i+3] == '-' &&
+		Digits(p, i+4, 4) {
+		return true
 	}
 	return false
 }
 
-// nanp matches an areacode and a 7 digit number, ie 305-555-1234.
+// NANP matches an areacode and a 7 digit number, ie 305-555-1234.
 // However, area codes below 200 are not matched, ie 199-555-1234.
 //
 //nolint:mnd
-func nanp(i int, p []byte) bool {
+func NANP(i int, p []byte) bool {
 	if i+12 <= len(p) &&
-		digiter(p, i, 3) &&
+		Digits(p, i, 3) &&
 		p[i] >= '2' &&
 		p[i+3] == '-' &&
-		digiter(p, i+4, 3) &&
+		Digits(p, i+4, 3) &&
 		p[i+7] == '-' &&
-		digiter(p, i+8, 4) {
+		Digits(p, i+8, 4) {
 		return true
 	}
 	return false
@@ -334,15 +424,15 @@ func nanp(i int, p []byte) bool {
 //nolint:mnd,cyclop
 func serial5x5(i int, p []byte) bool {
 	if i+29 <= len(p) &&
-		matcher(p, i, 5) &&
+		Alpha09(p, i, 5) &&
 		p[i+5] == '-' &&
-		matcher(p, i+6, 5) &&
+		Alpha09(p, i+6, 5) &&
 		p[i+11] == '-' &&
-		matcher(p, i+12, 5) &&
+		Alpha09(p, i+12, 5) &&
 		p[i+17] == '-' &&
-		matcher(p, i+18, 5) &&
+		Alpha09(p, i+18, 5) &&
 		p[i+23] == '-' &&
-		matcher(p, i+24, 5) {
+		Alpha09(p, i+24, 5) {
 		return true
 	}
 	return false
@@ -353,15 +443,15 @@ func serial5x5(i int, p []byte) bool {
 //nolint:mnd,cyclop
 func serial5x4(i int, p []byte) bool {
 	if i+25 <= len(p) &&
-		matcher(p, i, 4) &&
+		Alpha09(p, i, 4) &&
 		p[i+4] == '-' &&
-		matcher(p, i+5, 4) &&
+		Alpha09(p, i+5, 4) &&
 		p[i+9] == '-' &&
-		matcher(p, i+10, 4) &&
+		Alpha09(p, i+10, 4) &&
 		p[i+14] == '-' &&
-		matcher(p, i+15, 4) &&
+		Alpha09(p, i+15, 4) &&
 		p[i+19] == '-' &&
-		matcher(p, i+20, 4) &&
+		Alpha09(p, i+20, 4) &&
 		(p[i+24] == ' ' || p[i+24] == '\n') { // avoid false positives with serial6x4 results
 		return true
 	}
@@ -373,17 +463,17 @@ func serial5x4(i int, p []byte) bool {
 //nolint:mnd,cyclop
 func serial6x4(i int, p []byte) bool {
 	if i+29 <= len(p) &&
-		matcher(p, i, 4) &&
+		Alpha09(p, i, 4) &&
 		p[i+4] == '-' &&
-		matcher(p, i+5, 4) &&
+		Alpha09(p, i+5, 4) &&
 		p[i+9] == '-' &&
-		matcher(p, i+10, 4) &&
+		Alpha09(p, i+10, 4) &&
 		p[i+14] == '-' &&
-		matcher(p, i+15, 4) &&
+		Alpha09(p, i+15, 4) &&
 		p[i+19] == '-' &&
-		matcher(p, i+20, 4) &&
+		Alpha09(p, i+20, 4) &&
 		p[i+24] == '-' &&
-		matcher(p, i+25, 4) {
+		Alpha09(p, i+25, 4) {
 		return true
 	}
 	return false
@@ -394,13 +484,13 @@ func serial6x4(i int, p []byte) bool {
 //nolint:mnd
 func serial4774(i int, p []byte) bool {
 	if i+25 <= len(p) &&
-		matcher(p, i, 4) &&
+		Alpha09(p, i, 4) &&
 		p[i+4] == '-' &&
-		matcher(p, i+5, 7) &&
+		Alpha09(p, i+5, 7) &&
 		p[i+12] == '-' &&
-		matcher(p, i+13, 7) &&
+		Alpha09(p, i+13, 7) &&
 		p[i+20] == '-' &&
-		matcher(p, i+21, 4) {
+		Alpha09(p, i+21, 4) {
 		return true
 	}
 	return false
@@ -411,13 +501,13 @@ func serial4774(i int, p []byte) bool {
 //nolint:mnd
 func digit4774(i int, p []byte) bool {
 	if i+25 <= len(p) &&
-		digiter(p, i, 4) &&
+		Digits(p, i, 4) &&
 		p[i+4] == ' ' &&
-		digiter(p, i+5, 7) &&
+		Digits(p, i+5, 7) &&
 		p[i+12] == ' ' &&
-		digiter(p, i+13, 7) &&
+		Digits(p, i+13, 7) &&
 		p[i+20] == ' ' &&
-		digiter(p, i+21, 4) {
+		Digits(p, i+21, 4) {
 		return true
 	}
 	return false

@@ -602,7 +602,7 @@ func TestMask(t *testing.T) {
 	x = bytes.Join(s, []byte(" "))
 	be.True(t, bytes.Contains(x, x1))
 	x = helper.Mask(x...)
-	be.True(t, bytes.Contains(x, x1))
+	be.True(t, !bytes.Contains(x, x1)) // after an unpdate, this gets masked by Phone
 	s = [][]byte{p, x2, p}
 	x = bytes.Join(s, []byte(" "))
 	be.True(t, bytes.Contains(x, x2))
@@ -623,4 +623,74 @@ func random(n int) []byte {
 		b[i] = chars[rand.Intn(len(chars))] //nolint:gosec
 	}
 	return b
+}
+
+func TestAlpha09(t *testing.T) {
+	t.Parallel()
+	bad := []string{"123-1234", "000_0000", "$1000.00", "Hello world!"}
+	for _, number := range bad {
+		l := len(number)
+		ok := helper.Digits([]byte(number), 0, l)
+		be.True(t, !ok)
+	}
+	good := []string{"1231234", "Abcdefghi", "0A1b2C3d", "09x876"}
+	for _, s := range good {
+		l := len(s)
+		ok := helper.Alpha09([]byte(s), 0, l)
+		be.True(t, ok)
+	}
+	idx := []byte("Abc123.")
+	ok := helper.Alpha09(idx, 0, 6) // Abc123
+	be.True(t, ok)
+	ok = helper.Alpha09(idx, 6, 2) // 3.
+	be.True(t, !ok)
+}
+
+func TestDigits(t *testing.T) {
+	t.Parallel()
+	bad := []string{"123-1234", "000-0000", "000 0000", "000A000"}
+	for _, number := range bad {
+		l := len(number)
+		ok := helper.Digits([]byte(number), 0, l)
+		be.True(t, !ok)
+	}
+	good := []string{"1231234", "0000000", "0000000", "09876"}
+	for _, number := range good {
+		l := len(number)
+		ok := helper.Digits([]byte(number), 0, l)
+		be.True(t, ok)
+	}
+	idx := []byte("ABC123")
+	ok := helper.Digits(idx, 3, 3) // 123
+	be.True(t, ok)
+	ok = helper.Digits(idx, 4, 1) // 2
+	be.True(t, ok)
+	ok = helper.Digits(idx, 0, 3) // ABC
+	be.True(t, !ok)
+	ok = helper.Digits(idx, 1, 4) // BC12
+	be.True(t, !ok)
+}
+
+func TestPhone(t *testing.T) {
+	t.Parallel()
+	numbers := []string{"123-1234", "000-0000", "999-9999"}
+	for _, numb := range numbers {
+		ok := helper.Phone(0, []byte(numb))
+		be.True(t, ok)
+	}
+	notnumb := []string{"123 1234", "123A1234", "123_1234", "2005-12-12", "9999-555", "999-555X"}
+	for _, s := range notnumb {
+		ok := helper.Phone(0, []byte(s))
+		be.True(t, !ok)
+	}
+}
+
+func TestMaskTerm(t *testing.T) {
+	t.Parallel()
+	p := []byte("Use the following CD key: 123456")
+	g := string(helper.MaskTerm(p...))
+	be.True(t, g == "Use the following Cxxxxx: 123456")
+	p = []byte("Use the following number: 123456")
+	g = string(helper.MaskTerm(p...))
+	be.True(t, g == "Use the following number: 123456")
 }
