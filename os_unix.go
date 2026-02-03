@@ -27,9 +27,10 @@ func DiskStat(path string) (float64, float64, float64, string, error) {
 		return 0, 0, 0, "", fmt.Errorf("unix stat fs: %w", err)
 	}
 	// Available blocks * size per block = available space in bytes
+	const half, hundred = 0.5, 100
 	totl := float64(stat.Blocks) * float64(stat.Bsize)
 	free := float64(stat.Bavail) * float64(stat.Bsize)
-	perc := (free / totl) * 100
-	s := fmt.Sprintf("%d%%", int64(math.Floor(perc+0.5)))
+	perc := (free / totl) * hundred
+	s := fmt.Sprintf("%d%%", int64(math.Floor(perc+half)))
 	return totl, free, perc, s, nil
 }

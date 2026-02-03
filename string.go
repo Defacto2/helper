@@ -150,16 +150,17 @@ func DeObfuscate(s string) string {
 	num ^= obfuscateXOR
 	baseNum := strconv.Itoa(int(num))
 	l := len(baseNum) - 1
-	value := ""
+	var value strings.Builder
 	for i := range l {
 		f := baseNum[l-i:][:1]
-		value += f
+		value.WriteString(f)
 	}
 	// create checks
-	l = len(value)
+	valueStr := value.String()
+	l = len(valueStr)
 	chksumTest := 0
 	for i := range l {
-		chr := value[i : i+1]
+		chr := valueStr[i : i+1]
 		n, err1 := strconv.Atoi(chr)
 		if err1 != nil {
 			return s
@@ -173,11 +174,11 @@ func DeObfuscate(s string) string {
 	}
 	chksumX := strconv.FormatInt(chksum, decimal)
 	chksumY := strconv.FormatInt(int64(chksumTest+obfuscateSum), decimal)
-	if err := chksumX != chksumY; err {
+	if chksumX != chksumY {
 		return s
 	}
 
-	return value
+	return valueStr
 }
 
 // DeobfuscateID an obfuscated ID to return the primary key of the record.
@@ -259,28 +260,35 @@ func Mask(p ...byte) []byte {
 			mask := strings.Repeat("0", Chrs29)
 			out.WriteString(mask)
 			i += Chrs29
+			continue
 		case serial4774(i, p), digit4774(i, p):
 			mask := strings.Repeat("0", Chrs25)
 			out.WriteString(mask)
 			i += Chrs25
+			continue
 		case serial5x4(i, p):
 			mask := strings.Repeat("0", Chrs24)
 			out.WriteString(mask)
 			i += Chrs24
-		case Phone(i, p):
+			continue
+		case Phone(i, p), PhoneEuro(i, p), PhoneDE(i, p):
 			// 123-5678
-			mask := fmt.Sprintf("%s$$%s", p[i:i+5], p[i+7:i+7])
+			mask := fmt.Sprintf("%s$$%s", p[i:i+5], string(p[i+7]))
 			out.WriteString(mask)
-			i += 7
+			i += 8
+			continue
 		default:
 			if x := IndexTerm(i, p); x > 0 {
 				mask := fmt.Sprintf("%s%s", p[i:i+1], strings.Repeat("x", x-1))
 				out.WriteString(mask)
 				i += x
+				continue
 			}
 		}
-		out.WriteByte(p[i])
-		i++
+		if i < len(p) {
+			out.WriteByte(p[i])
+			i++
+		}
 	}
 	return out.Bytes()
 }
@@ -297,6 +305,9 @@ func MaskTerm(p ...byte) []byte {
 			mask := fmt.Sprintf("%s%s", p[i:i+1], strings.Repeat("x", x-1))
 			out.WriteString(mask)
 			i += x
+		}
+		if i >= len(p) {
+			break
 		}
 		out.WriteByte(p[i])
 		i++
@@ -389,7 +400,7 @@ func Digits(b []byte, i, n int) bool {
 	return true
 }
 
-// Phone matches a 7 digit telephone number, ie "555-1234".
+// Phone matches a 3-4, 7 digit telephone number, ie "555-1234".
 //
 //nolint:mnd
 func Phone(i int, p []byte) bool {
@@ -397,6 +408,34 @@ func Phone(i int, p []byte) bool {
 		Digits(p, i, 3) &&
 		p[i+3] == '-' &&
 		Digits(p, i+4, 4) {
+		return true
+	}
+	return false
+}
+
+// PhoneDE matches a 3-3-3, 9 digit telephone number, ie "555-123-456".
+//
+//nolint:mnd
+func PhoneDE(i int, p []byte) bool {
+	if i+9 <= len(p) &&
+		Digits(p, i, 3) &&
+		p[i+3] == '-' &&
+		Digits(p, i+4, 3) &&
+		p[i+7] == '-' &&
+		Digits(p, i+4+4, 3) {
+		return true
+	}
+	return false
+}
+
+// PhoneEuro matches a 2-6, 8 digit telephone number, ie "55-123456".
+//
+//nolint:mnd
+func PhoneEuro(i int, p []byte) bool {
+	if i+8 <= len(p) &&
+		Digits(p, i, 2) &&
+		p[i+2] == '-' &&
+		Digits(p, i+3, 6) {
 		return true
 	}
 	return false
@@ -604,12 +643,13 @@ func Released(s string) (int16, int16, int16) {
 //
 // [Wade73]: http://stackoverflow.com/questions/35972561/reverse-int-golang
 func ReverseInt(i int) (int, error) {
-	itoa, str := strconv.Itoa(i), ""
+	itoa := strconv.Itoa(i)
+	var str strings.Builder
 	for x := len(itoa); x > 0; x-- {
-		str += string(itoa[x-1])
+		str.WriteByte(itoa[x-1])
 	}
 
-	reverse, err := strconv.Atoi(str)
+	reverse, err := strconv.Atoi(str.String())
 	if err != nil {
 		return 0, fmt.Errorf("reverse integer %d: %w", i, err)
 	}
@@ -741,7 +781,7 @@ func TrimRoundBraket(s string) string {
 	}
 	l, r := strings.Index(s, "("), strings.Index(s, ")")
 	if l < r {
-		return strings.TrimSpace(s[:l-1])
+		return strings.TrimSpace(s[:l])
 	}
 	return s
 }

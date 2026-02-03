@@ -280,7 +280,7 @@ func IntegrityBytes(b []byte) string {
 func Lines(name string) (int, error) {
 	file, err := os.Open(name)
 	if err != nil {
-		return 0, fmt.Errorf("integrity os.open %w", err)
+		return 0, fmt.Errorf("lines os.open %w", err)
 	}
 	defer file.Close()
 
@@ -292,7 +292,7 @@ func Lines(name string) (int, error) {
 
 	err = scanner.Err()
 	if err != nil {
-		return 0, fmt.Errorf("integrity scanner.scan %w", err)
+		return 0, fmt.Errorf("lines scanner.scan %w", err)
 	}
 
 	return lines, nil
@@ -370,6 +370,7 @@ func RenameFile(oldpath, newpath string) error {
 }
 
 // RenameFileOW renames a file from oldpath to newpath.
+// If newpath is an existing directory, it is removed.
 // It returns an error if the oldpath does not exist or is a directory
 // or the rename fails.
 func RenameFileOW(oldpath, newpath string) error {
@@ -500,7 +501,7 @@ func Touch(name string) error {
 // TouchW creates a new named file with the given data.
 // If the file already exists, an error is returned.
 func TouchW(name string, data ...byte) (int, error) {
-	file, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY, WriteWriteRead)
+	file, err := os.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, WriteWriteRead)
 	if err != nil {
 		return 0, fmt.Errorf("touch write open file %w", err)
 	}
