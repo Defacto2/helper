@@ -329,3 +329,24 @@ func TestLocalHostPing(t *testing.T) {
 		})
 	}
 }
+
+// TestByteCountEdgeCases tests extremely large numbers that would overflow byteUnits.
+func TestByteCountEdgeCases(t *testing.T) {
+	t.Parallel()
+	huge := int64(1) * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 // 1 exabyte
+	got := helper.ByteCount(huge)
+	be.True(t, len(got) > 0)
+	// Verify it doesn't panic or produce invalid output
+	be.True(t, strings.ContainsAny(got, "KMGTPE"))
+}
+
+// TestTimeDistanceZeroHoursFix verifies that 2 hours doesn't return "0 hours".
+func TestTimeDistanceZeroHoursFix(t *testing.T) {
+	t.Parallel()
+	base := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	got := helper.TimeDistance(base, base.Add(2*time.Hour), false)
+	// Should NOT contain "0 hours"
+	be.True(t, !strings.Contains(got, "0 hours"))
+	// Should contain "2 hours"
+	be.True(t, strings.Contains(got, "2 hours"))
+}

@@ -31,6 +31,16 @@ const (
 	obfuscateSum = 154
 )
 
+var (
+	// Compiled regex patterns for Slug() - compiled once, reused many times
+	slugRegex1 = regexp.MustCompile(`\-`)
+	slugRegex2 = regexp.MustCompile(`\, `)
+	slugRegex3 = regexp.MustCompile(` \& `)
+	slugRegex4 = regexp.MustCompile(` ([0-9])`)
+	slugRegex5 = regexp.MustCompile(`[^A-Za-z0-9 \-\+\.\_\*]`)
+	slugRegex6 = regexp.MustCompile(` `)
+)
+
 // ByteCount formats b as in a compact, human-readable unit of measure.
 //
 // source, [yourbasic]
@@ -39,12 +49,15 @@ const (
 func ByteCount(b int64) string {
 	const unit = 1024
 	if b < unit {
-		return fmt.Sprintf("%d%s", b, strings.Repeat("B", 1))
+		return fmt.Sprintf("%dB", b)
 	}
 	div, exp := int64(unit), 0
 	for n := b / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
+	}
+	if exp >= len(byteUnits) {
+		exp = len(byteUnits) - 1
 	}
 	return fmt.Sprintf("%.0f%c",
 		float64(b)/float64(div), byteUnits[exp])
@@ -61,6 +74,9 @@ func ByteCountFloat(b int64) string {
 	for n := b / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
+	}
+	if exp >= len(byteUnits) {
+		exp = len(byteUnits) - 1
 	}
 	const gigabyte = 2
 	if exp < gigabyte {
@@ -119,11 +135,13 @@ func CfUUID(cfid string) (string, error) {
 // DeleteDupe removes duplicate strings from a slice.
 // The returned slice is sorted and compacted.
 func DeleteDupe(s ...string) []string {
-	x := make([]string, 0, len(s))
-	for val := range slices.Values(s) {
-		if !slices.Contains(x, val) {
-			x = append(x, val)
-		}
+	seen := make(map[string]bool)
+	for _, val := range s {
+		seen[val] = true
+	}
+	x := make([]string, 0, len(seen))
+	for val := range seen {
+		x = append(x, val)
 	}
 	slices.Sort(x)
 	return slices.Compact(x)
@@ -229,6 +247,13 @@ const (
 	Chrs29 = 29
 )
 
+var (
+	// Pre-computed mask strings for Mask() - computed once, reused many times
+	maskChrs29 = strings.Repeat("0", Chrs29)
+	maskChrs25 = strings.Repeat("0", Chrs25)
+	maskChrs24 = strings.Repeat("0", Chrs24)
+)
+
 // Mask runs a performant scan of the bytes and replaces any matching
 // serials or key sequences with a sequence of 0 characters of the same length.
 //
@@ -257,23 +282,20 @@ func Mask(p ...byte) []byte {
 	for i < len(p) {
 		switch {
 		case serial5x5(i, p), serial6x4(i, p):
-			mask := strings.Repeat("0", Chrs29)
-			out.WriteString(mask)
+			out.WriteString(maskChrs29)
 			i += Chrs29
 			continue
 		case serial4774(i, p), digit4774(i, p):
-			mask := strings.Repeat("0", Chrs25)
-			out.WriteString(mask)
+			out.WriteString(maskChrs25)
 			i += Chrs25
 			continue
 		case serial5x4(i, p):
-			mask := strings.Repeat("0", Chrs24)
-			out.WriteString(mask)
+			out.WriteString(maskChrs24)
 			i += Chrs24
 			continue
 		case Phone(i, p), PhoneEuro(i, p), PhoneDE(i, p):
 			// 123-5678
-			mask := fmt.Sprintf("%s$$%s", p[i:i+5], string(p[i+7]))
+			mask := fmt.Sprintf("%s$$%s", p[i:i+5], string(p[i+7:i+8]))
 			out.WriteString(mask)
 			i += 8
 			continue
@@ -580,10 +602,7 @@ func Obfuscate(s string) string {
 	b := 0
 	for i := 1; i <= l; i++ {
 		// slice and sum the individual digits
-		digit, err := strconv.Atoi(string(s[l-i]))
-		if err != nil {
-			return s
-		}
+		digit := int(s[l-i] - '0')
 		b += digit
 	}
 	// base64 conversion
@@ -692,25 +711,18 @@ func Slug(name string) string {
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	s, _, _ = transform.String(t, s)
 	// hyphen to underscore
-	re := regexp.MustCompile(`\-`)
-	s = re.ReplaceAllString(s, "_")
+	s = slugRegex1.ReplaceAllString(s, "_")
 	// multiple groups get separated with asterisk
-	re = regexp.MustCompile(`\, `)
-	s = re.ReplaceAllString(s, "*")
+	s = slugRegex2.ReplaceAllString(s, "*")
 	// any & characters need replacement due to HTML escaping
-	re = regexp.MustCompile(` \& `)
-	s = re.ReplaceAllString(s, " ampersand ")
+	s = slugRegex3.ReplaceAllString(s, " ampersand ")
 	// numbers receive a leading hyphen
-	re = regexp.MustCompile(` ([0-9])`)
-	s = re.ReplaceAllString(s, "-$1")
+	s = slugRegex4.ReplaceAllString(s, "-$1")
 	// delete all other characters
-	const deleteAllExcept = `[^A-Za-z0-9 \-\+\.\_\*]`
-	re = regexp.MustCompile(deleteAllExcept)
-	s = re.ReplaceAllString(s, "")
+	s = slugRegex5.ReplaceAllString(s, "")
 	// trim whitespace and replace any space separators with hyphens
 	s = strings.TrimSpace(strings.ToLower(s))
-	re = regexp.MustCompile(` `)
-	s = re.ReplaceAllString(s, "-")
+	s = slugRegex6.ReplaceAllString(s, "-")
 	return s
 }
 
@@ -767,6 +779,9 @@ func TruncFilename(w int, name string) string {
 	}
 	ext := filepath.Ext(name)
 	if w <= len(ext) {
+		return ext
+	}
+	if w-len(ext)-len(trunc) <= 0 {
 		return ext
 	}
 	s := name[0 : w-len(ext)-len(trunc)]

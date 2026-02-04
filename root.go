@@ -127,7 +127,7 @@ func TouchR(r *os.Root, name string) error {
 // TouchWR creates a new named file with the given data.
 // If the file already exists, an error is returned.
 func TouchWR(r *os.Root, name string, data ...byte) (int, error) {
-	file, err := r.OpenFile(name, os.O_CREATE|os.O_WRONLY, WriteWriteRead)
+	file, err := r.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, WriteWriteRead)
 	if err != nil {
 		return 0, fmt.Errorf("touch write open file %w", err)
 	}

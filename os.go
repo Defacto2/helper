@@ -4,6 +4,7 @@ package helper
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha512"
 	"embed"
 	"encoding/base64"
@@ -29,6 +30,8 @@ const (
 	TempBase                     = "defacto2-server" // TempBase is the base subdirectory for temporary files.
 	DirWriteReadRead             = 0o755             // Directory permissions.
 )
+
+var errEmptyFile = errors.New("utf8: empty file")
 
 // Extension is a file extension with a count of files.
 type Extension struct {
@@ -227,7 +230,7 @@ func fileMatch(f1, f2 *os.File) (bool, error) {
 		if n1 != n2 {
 			return false, nil
 		}
-		if string(buf1[:n1]) != string(buf2[:n2]) {
+		if !bytes.Equal(buf1[:n1], buf2[:n2]) {
 			return false, nil
 		}
 	}
@@ -332,13 +335,13 @@ func Owner() ([]string, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("owner user group ids %w", err)
 	}
-	groups := make([]string, len(grps))
-	for i, id := range grps {
+	groups := make([]string, 0, len(grps))
+	for _, id := range grps {
 		group, err := user.LookupId(id)
 		if err != nil || group == nil {
 			continue
 		}
-		groups[i] = group.Name
+		groups = append(groups, group.Name)
 	}
 	return groups, curr.Username, nil
 }
@@ -531,9 +534,12 @@ func UTF8(name string) (bool, error) {
 	defer f.Close()
 	const sample = 512
 	buf := make([]byte, sample)
-	_, err = f.Read(buf)
-	if err != nil {
+	n, err := f.Read(buf)
+	if n == 0 {
+		return false, fmt.Errorf("utf8 read %w", errEmptyFile)
+	}
+	if err != nil && !errors.Is(err, io.EOF) {
 		return false, fmt.Errorf("utf8 read %w", err)
 	}
-	return utf8.Valid(buf), nil
+	return utf8.Valid(buf[:n]), nil
 }

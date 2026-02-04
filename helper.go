@@ -14,7 +14,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"reflect"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -82,9 +81,16 @@ func Logger(_ context.Context) any {
 // The type of a must be an integer type or the result is 0.
 func Add1(a any) int64 {
 	switch val := a.(type) {
-	case int, int8, int16, int32, int64:
-		i := reflect.ValueOf(val).Int()
-		return i + 1
+	case int:
+		return int64(val) + 1
+	case int8:
+		return int64(val) + 1
+	case int16:
+		return int64(val) + 1
+	case int32:
+		return int64(val) + 1
+	case int64:
+		return val + 1
 	default:
 		return 0
 	}
@@ -497,6 +503,9 @@ func lessHours(mins, hrs int) string {
 	case mins < abouthour:
 		return "about 1 hour"
 	case mins < hours:
+		if hrs == 0 {
+			hrs = 1
+		}
 		return fmt.Sprintf("about %d hours", hrs)
 	default:
 		return ""
@@ -512,6 +521,9 @@ func lessDays(mins, hrs int) string {
 	case mins < days:
 		const hoursinaday = 24
 		d := hrs / hoursinaday
+		if d == 0 {
+			d = 1
+		}
 		return fmt.Sprintf("%d days", d)
 	default:
 		return ""
@@ -527,6 +539,9 @@ func lessMonths(mins, hrs int) string {
 	case mins < months:
 		const hoursinamonth = 730
 		m := hrs / hoursinamonth
+		if m == 0 {
+			m = 1
+		}
 		return fmt.Sprintf("%d months", m)
 	default:
 		return ""
