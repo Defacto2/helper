@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	// Compiled regex patterns for Slug() - compiled once, reused many times
+	// Compiled regex patterns for Slug() - compiled once, reused many times.
 	slugRegex1 = regexp.MustCompile(`\-`)
 	slugRegex2 = regexp.MustCompile(`\, `)
 	slugRegex3 = regexp.MustCompile(` \& `)
@@ -248,9 +248,12 @@ const (
 )
 
 var (
-	// Pre-computed mask strings for Mask() - computed once, reused many times
+	// Pre-computed mask strings for Mask() - computed once, reused many times.
+	//nolint:gochecknoglobals
 	maskChrs29 = strings.Repeat("0", Chrs29)
+	//nolint:gochecknoglobals
 	maskChrs25 = strings.Repeat("0", Chrs25)
+	//nolint:gochecknoglobals
 	maskChrs24 = strings.Repeat("0", Chrs24)
 )
 
