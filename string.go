@@ -1,6 +1,6 @@
 package helper
 
-// Package file string.go contains the helper functions for string operations.
+// Package string contains helper functions for string operations.
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	// Compiled regex patterns for Slug() - compiled once, reused many times.
+	// Compiled regex patterns for Slug() - compiled once, reused many times..
 	slugRegex1 = regexp.MustCompile(`\-`)
 	slugRegex2 = regexp.MustCompile(`\, `)
 	slugRegex3 = regexp.MustCompile(` \& `)
@@ -43,7 +43,7 @@ var (
 
 // ByteCount formats b as in a compact, human-readable unit of measure.
 //
-// source, [yourbasic]
+// Source: [yourbasic]
 //
 // [yourbasic]: https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
 func ByteCount(b int64) string {
@@ -63,7 +63,7 @@ func ByteCount(b int64) string {
 		float64(b)/float64(div), byteUnits[exp])
 }
 
-// ByteCountFloat formats b as in a human-readable unit of measure.
+// ByteCountFloat formats b in a human-readable unit of measure.
 // Units measured in gigabytes or larger are returned with 1 decimal place.
 func ByteCountFloat(b int64) string {
 	const unit = 1000
@@ -87,7 +87,7 @@ func ByteCountFloat(b int64) string {
 		float64(b)/float64(div), byteUnits[exp])
 }
 
-// Capitalize returns a string with the first letter of the first word capitalized.
+// Capitalize returns a string with the first letter of the first word capitalized..
 // If the first word is an acronym, it is capitalized as a word.
 func Capitalize(s string) string {
 	if s == "" {
@@ -103,7 +103,7 @@ func Capitalize(s string) string {
 	return caser.String(x[0]) + sep + strings.Join(x[1:], sep)
 }
 
-// ChrLast returns the last character or rune of the string.
+// ChrLast returns the last character or rune of the string..
 func ChrLast(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -113,7 +113,7 @@ func ChrLast(s string) string {
 	return string(r)
 }
 
-// CfUUID formats a 35 character, Coldfusion Universally Unique Identifier
+// CfUUID formats a 35 character, Coldfusion Universally Unique Identifier.
 // to a standard, 36 character, Universally Unique Identifier.
 func CfUUID(cfid string) (string, error) {
 	if err := uuid.Validate(cfid); err == nil {
@@ -132,7 +132,7 @@ func CfUUID(cfid string) (string, error) {
 	return newid, nil
 }
 
-// DeleteDupe removes duplicate strings from a slice.
+// DeleteDupe removes duplicate strings from a slice..
 // The returned slice is sorted and compacted.
 func DeleteDupe(s ...string) []string {
 	seen := make(map[string]bool)
@@ -147,7 +147,7 @@ func DeleteDupe(s ...string) []string {
 	return slices.Compact(x)
 }
 
-// DeObfuscate the obfuscated string, or return the original string.
+// DeObfuscate deobfuscates the obfuscated string, or returns the original string..
 //
 // This function is a port of the [deobfuscateParam] function programmed in ColdFusion (CFML).
 //
@@ -199,14 +199,14 @@ func DeObfuscate(s string) string {
 	return valueStr
 }
 
-// DeobfuscateID an obfuscated ID to return the primary key of the record.
+// DeobfuscateID deobfuscates an obfuscated ID to return the primary key of the record..
 // Returns a 0 if the id is not valid.
 func DeobfuscateID(id string) int {
 	key, _ := strconv.Atoi(DeObfuscate(id))
 	return key
 }
 
-// DeobfuscateURL deobfuscate an obfuscated record URL to return a record's primary key.
+// DeobfuscateURL deobfuscates an obfuscated record URL to return a record's primary key..
 // A URL can point to a Defacto2 record download or detail page.
 // Returns a 0 if the URL is not valid.
 func DeobfuscateURL(rawURL string) int {
@@ -217,7 +217,7 @@ func DeobfuscateURL(rawURL string) int {
 	return DeobfuscateID(path.Base(u.Path))
 }
 
-// FmtSlice formats a comma separated string.
+// FmtSlice formats a comma separated string..
 func FmtSlice(s string) string {
 	x := []string{}
 	for part := range strings.SplitSeq(s, ",") {
@@ -230,7 +230,7 @@ func FmtSlice(s string) string {
 	return strings.Join(x, ", ")
 }
 
-// MaxLineLength counts the character length of the longest line in a string.
+// MaxLineLength counts the character length of the longest line in a string..
 func MaxLineLength(s string) int {
 	maxLen := 0
 	for line := range strings.SplitSeq(s, "\n") {
@@ -257,7 +257,7 @@ var (
 	maskChrs24 = strings.Repeat("0", Chrs24)
 )
 
-// Mask runs a performant scan of the bytes and replaces any matching
+// Mask runs a performant scan of the bytes and replaces any matching.
 // serials or key sequences with a sequence of 0 characters of the same length.
 //
 // Currently the following patterns are matched
@@ -318,7 +318,7 @@ func Mask(p ...byte) []byte {
 	return out.Bytes()
 }
 
-// MaskTerm replaces a predefined list of words and combinations with a series of x characters.
+// MaskTerm replaces a predefined list of words and combinations with a series of x characters..
 // For example, any occurrence of the word "password" will be masked as "pxxxxxx".
 //
 // MaskTerm should not be used with [Mask] as it duplicates functionality.
@@ -340,7 +340,7 @@ func MaskTerm(p ...byte) []byte {
 	return out.Bytes()
 }
 
-// IndexTerm searches the p byte array for a predefined list of words and combinations.
+// IndexTerm searches the p byte array for a predefined list of words and combinations..
 // Any matches will return the location index of the match.
 // If no matches are found a 0 is returned.
 //
@@ -385,7 +385,7 @@ func IndexTerm(i int, p []byte) int {
 	return 0
 }
 
-// Alpha09 returns true if the slice of bytes exclusively contains
+// Alpha09 returns true if the slice of bytes exclusively contains.
 // alphanumeric characters. Everything else including punctuation returns false.
 // i is the index position and n is the number of bytes to match.
 //
@@ -410,7 +410,7 @@ func Alpha09(b []byte, i, n int) bool {
 	return true
 }
 
-// Digits returns true if the slice of bytes is a sequence of digits.
+// Digits returns true if the slice of bytes is a sequence of digits..
 // i is the index position and n is the number of bytes to match.
 func Digits(b []byte, i, n int) bool {
 	if i < 0 || n <= 0 || i+n > len(b) {
@@ -425,7 +425,7 @@ func Digits(b []byte, i, n int) bool {
 	return true
 }
 
-// Phone matches a 3-4, 7 digit telephone number, ie "555-1234".
+// Phone matches a 3-4, 7 digit telephone number, i.e., "555-1234"..
 //
 //nolint:mnd
 func Phone(i int, p []byte) bool {
@@ -438,7 +438,7 @@ func Phone(i int, p []byte) bool {
 	return false
 }
 
-// PhoneDE matches a 3-3-3, 9 digit telephone number, ie "555-123-456".
+// PhoneDE matches a 3-3-3, 9 digit telephone number, i.e., "555-123-456"..
 //
 //nolint:mnd
 func PhoneDE(i int, p []byte) bool {
@@ -453,7 +453,7 @@ func PhoneDE(i int, p []byte) bool {
 	return false
 }
 
-// PhoneEuro matches a 2-6, 8 digit telephone number, ie "55-123456".
+// PhoneEuro matches a 2-6, 8 digit telephone number, i.e., "55-123456"..
 //
 //nolint:mnd
 func PhoneEuro(i int, p []byte) bool {
@@ -466,7 +466,7 @@ func PhoneEuro(i int, p []byte) bool {
 	return false
 }
 
-// NANP matches an areacode and a 7 digit number, ie 305-555-1234.
+// NANP matches an areacode and a 7 digit number, i.e., 305-555-1234..
 // However, area codes below 200 are not matched, ie 199-555-1234.
 //
 //nolint:mnd
@@ -483,7 +483,7 @@ func NANP(i int, p []byte) bool {
 	return false
 }
 
-// serial5x5 matches 12345-67890-ABCDE-FGHIJ-LMNOP.
+// serial5x5 matches 12345-67890-ABCDE-FGHIJ-LMNOP..
 //
 //nolint:mnd,cyclop
 func serial5x5(i int, p []byte) bool {
@@ -502,7 +502,7 @@ func serial5x5(i int, p []byte) bool {
 	return false
 }
 
-// serial5x4 matches 1234-5678-ABCD-EFGH-IJKL.
+// serial5x4 matches 1234-5678-ABCD-EFGH-IJKL..
 //
 //nolint:mnd,cyclop
 func serial5x4(i int, p []byte) bool {
@@ -522,7 +522,7 @@ func serial5x4(i int, p []byte) bool {
 	return false
 }
 
-// serial6x4 matches 1234-5678-ABCD-EFGH-IJKL-MNOP.
+// serial6x4 matches 1234-5678-ABCD-EFGH-IJKL-MNOP..
 //
 //nolint:mnd,cyclop
 func serial6x4(i int, p []byte) bool {
@@ -543,7 +543,7 @@ func serial6x4(i int, p []byte) bool {
 	return false
 }
 
-// serial4774 matches 1234-567890A-BCDEFGH-IJKL.
+// serial4774 matches 1234-567890A-BCDEFGH-IJKL..
 //
 //nolint:mnd
 func serial4774(i int, p []byte) bool {
@@ -560,7 +560,7 @@ func serial4774(i int, p []byte) bool {
 	return false
 }
 
-// digits4774 matches 1234 1234567 1234567 1234.
+// digits4774 matches 1234 1234567 1234567 1234..
 //
 //nolint:mnd
 func digit4774(i int, p []byte) bool {
@@ -577,12 +577,12 @@ func digit4774(i int, p []byte) bool {
 	return false
 }
 
-// ObfuscateID the primary key of a record as a string that is used as a URL param or path.
+// ObfuscateID obfuscates the primary key of a record as a string that is used as a URL param or path..
 func ObfuscateID(key int64) string {
 	return Obfuscate(strconv.Itoa(int(key)))
 }
 
-// Obfuscate a numeric string to insecurely hide database primary key values when passed along a URL.
+// Obfuscate obfuscates a numeric string to insecurely hide database primary key values when passed along a URL..
 //
 // This function is a port of the [obfuscateParam] function programmed in ColdFusion (CFML).
 //
@@ -618,7 +618,7 @@ func Obfuscate(s string) string {
 	)
 }
 
-// PageCount returns the maximum pages possible for the sum of records with a record limit per-page.
+// PageCount returns the maximum pages possible for the sum of records with a record limit per-page..
 func PageCount(sum, limit int) int {
 	if sum <= 0 || limit <= 0 {
 		return 0
@@ -627,7 +627,7 @@ func PageCount(sum, limit int) int {
 	return int(math.Abs(x))
 }
 
-// Released returns a string release date as year, month, day int16 values.
+// Released returns a string release date as year, month, day int16 values..
 // The string is expected to be in the format "2024-07-15" or "2024-07" or "2024".
 func Released(s string) (int16, int16, int16) {
 	dates := strings.Split(s, "-") // "2024-07-15"
@@ -659,7 +659,7 @@ func Released(s string) (int16, int16, int16) {
 	return year, month, day
 }
 
-// ReverseInt reverses an integer.
+// ReverseInt reverses an integer..
 //
 // credit, [Wade73]
 //
@@ -679,7 +679,7 @@ func ReverseInt(i int) (int, error) {
 	return reverse, nil
 }
 
-// SearchTerm returns a list of search terms from the input string.
+// SearchTerm returns a list of search terms from the input string..
 // The input string is split by commas.
 func SearchTerm(input string) []string {
 	if input == "" {
@@ -694,7 +694,7 @@ func SearchTerm(input string) []string {
 	return s
 }
 
-// ShortMonth takes a month integer and abbreviates it to a three letter English month.
+// ShortMonth takes a month integer and abbreviates it to a three letter English month..
 func ShortMonth(month int) string {
 	if month < 1 || month > 12 {
 		return ""
@@ -707,7 +707,7 @@ func ShortMonth(month int) string {
 	return ""
 }
 
-// Slug returns a URL friendly string of the named group.
+// Slug returns a URL friendly string of the named group..
 func Slug(name string) string {
 	s := name
 	// remove diacritics
@@ -729,7 +729,7 @@ func Slug(name string) string {
 	return s
 }
 
-// SplitAsSpaces splits a string at each capital letter.
+// SplitAsSpaces splits a string at each capital letter..
 func SplitAsSpaces(s string) string {
 	var result strings.Builder
 	for i, r := range s {
@@ -748,7 +748,7 @@ func SplitAsSpaces(s string) string {
 	return x
 }
 
-// Titleize returns a string with the first letter each word capitalized.
+// Titleize returns a string with the first letter of each word capitalized..
 // If a word is an acronym, it is capitalized as a word.
 func Titleize(s string) string {
 	if s == "" {
@@ -769,7 +769,7 @@ func Titleize(s string) string {
 	return strings.Join(words, sep)
 }
 
-// TruncFilename reduces a filename to the length of w characters.
+// TruncFilename reduces a filename to the length of w characters..
 // The file extension is always preserved with the truncation.
 func TruncFilename(w int, name string) string {
 	const trunc = "."
@@ -791,8 +791,8 @@ func TruncFilename(w int, name string) string {
 	return fmt.Sprintf("%s%s%s", s, trunc, ext)
 }
 
-// TrimRoundBraket removes the tailing round brakets and any whitespace.
-func TrimRoundBraket(s string) string {
+// TrimRoundBracket removes the trailing round brackets and any whitespace.
+func TrimRoundBracket(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return ""
@@ -804,7 +804,14 @@ func TrimRoundBraket(s string) string {
 	return s
 }
 
-// TrimPunct removes any trailing, common punctuation characters from the string.
+// TrimRoundBraket is the deprecated name for TrimRoundBracket.
+//
+// Deprecated: Use TrimRoundBracket instead.
+func TrimRoundBraket(s string) string {
+	return TrimRoundBracket(s)
+}
+
+// TrimPunct removes any trailing, common punctuation characters from the string..
 func TrimPunct(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -822,7 +829,7 @@ func TrimPunct(s string) string {
 	return s
 }
 
-// Years returns a string of the years if they are different.
+// Years returns a string of the years if they are different..
 // If they are the same, it returns a singular year.
 func Years(a, b int16) string {
 	if a == b {

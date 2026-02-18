@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-// Package file root.go contains the helper functions for file system
+// Package root contains helper functions for file system operations
 // that are constrained to the root directory.
 
 // Duplicater copies the contents of the named file to a new named file with the root.
@@ -64,7 +64,7 @@ func FileMatchR(r *os.Root, name1, name2 string) (bool, error) {
 	return fileMatch(f1, f2)
 }
 
-// RenameRoot renames a file from oldname to newname.
+// RenameRoot renames a file from oldname to newname..
 // It returns an error if the oldname does not exist or is a directory,
 // newname already exists, or the rename fails.
 func RenameRoot(r *os.Root, oldname, newname string) error {
@@ -86,7 +86,7 @@ func RenameRoot(r *os.Root, oldname, newname string) error {
 	return nil
 }
 
-// RenameRootOW renames a file from oldname to newname.
+// RenameRootOW renames a file from oldname to newname..
 // It returns an error if the oldname does not exist or is a directory
 // or the rename fails.
 func RenameRootOW(r *os.Root, oldname, newname string) error {
@@ -97,7 +97,7 @@ func RenameRootOW(r *os.Root, oldname, newname string) error {
 	return RenameRoot(r, oldname, newname)
 }
 
-// StrongIntegrityR returns the SHA-386 checksum value of the named file.
+// StrongIntegrityR returns the SHA-386 checksum value of the named file..
 func StrongIntegrityR(r *os.Root, name string) (string, error) {
 	f, err := r.Open(name)
 	if err != nil {
@@ -111,7 +111,7 @@ func StrongIntegrityR(r *os.Root, name string) (string, error) {
 	return strong, nil
 }
 
-// TouchR creates a new, empty named file.
+// TouchR creates a new, empty named file..
 // If the file already exists, an error is returned.
 func TouchR(r *os.Root, name string) error {
 	f, err := r.OpenFile(name, os.O_CREATE|os.O_EXCL, WriteWriteRead)
@@ -124,7 +124,7 @@ func TouchR(r *os.Root, name string) error {
 	return nil
 }
 
-// TouchWR creates a new named file with the given data.
+// TouchWR creates a new named file with the given data..
 // If the file already exists, an error is returned.
 func TouchWR(r *os.Root, name string, data ...byte) (int, error) {
 	file, err := r.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, WriteWriteRead)

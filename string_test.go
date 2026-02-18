@@ -694,3 +694,63 @@ func TestMaskTerm(t *testing.T) {
 	g = string(helper.MaskTerm(p...))
 	be.True(t, g == "Use the following number: 123456")
 }
+
+func TestNANP(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		in   string
+		exp  bool
+	}{
+		{"valid NANP", "305-555-1234", true},
+		{"valid high area code", "999-555-1234", true},
+		{"invalid low area code", "199-555-1234", false},
+		{"invalid area code 100", "100-555-1234", false},
+		{"missing hyphens", "3055551234", false},
+		{"too short", "305-555-123", false},
+		{"too long", "305-555-123456", true}, // First 12 bytes form valid NANP
+		{"wrong format", "305/555/1234", false},
+		{"empty", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := helper.NANP(0, []byte(tt.in))
+			if got != tt.exp {
+				t.Errorf("NANP() = %v, want %v for input %s", got, tt.exp, tt.in)
+			}
+		})
+	}
+}
+
+func TestReleased(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		in    string
+		year  int16
+		month int16
+		day   int16
+	}{
+		{"full date", "2024-07-15", 2024, 7, 15},
+		{"year-month", "2024-07", 2024, 7, 0},
+		{"year only", "2024", 2024, 0, 0},
+		{"min year", "1-01-01", 1, 1, 1},
+		{"max year", "32767-12-31", 32767, 12, 31},
+		{"invalid date", "2024-13-32", 2024, 0, 0}, // Invalid month/day
+		{"partial invalid", "2024-13", 2024, 0, 0}, // Invalid month
+		{"empty", "", 0, 0, 0},
+		{"malformed", "not-a-date", 0, 0, 0},
+		{"extra dashes", "2024-07-15-extra", 2024, 7, 15}, // Should parse first 3
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			year, month, day := helper.Released(tt.in)
+			if year != tt.year || month != tt.month || day != tt.day {
+				t.Errorf("Released() = (%v, %v, %v), want (%v, %v, %v) for input %s",
+					year, month, day, tt.year, tt.month, tt.day, tt.in)
+			}
+		})
+	}
+}

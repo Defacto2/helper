@@ -1,6 +1,6 @@
 package helper
 
-// Package file os.go contains the helper functions for file system operations.
+// Package os contains helper functions for file system operations.
 
 import (
 	"bufio"
@@ -25,10 +25,10 @@ import (
 const (
 	// WriteWriteRead is the file mode for read and write access.
 	// The file owner and group has read and write access, and others have read access.
-	WriteWriteRead   fs.FileMode = 0o664
+	WriteWriteRead   fs.FileMode = 0o664             // WriteWriteRead is the file mode for read and write access.
 	DSStore                      = ".DS_Store"       // DSStore is the macOS directory service store file.
 	TempBase                     = "defacto2-server" // TempBase is the base subdirectory for temporary files.
-	DirWriteReadRead             = 0o755             // Directory permissions.
+	DirWriteReadRead             = 0o755             // DirWriteReadRead sets directory permissions for read, write, and execute.
 )
 
 var errEmptyFile = errors.New("utf8: empty file")
@@ -405,14 +405,16 @@ func RenameCrossDevice(oldpath, newpath string) error {
 	}
 
 	if fi, err := os.Stat(oldpath); err != nil {
-		defer os.Remove(newpath)
+		_ = os.Remove(newpath)
 		return fmt.Errorf("rename cross device stat %w", err)
 	} else if fi.Size() == 0 {
-		defer os.Remove(newpath)
-		defer os.Remove(oldpath)
+		_ = os.Remove(newpath)
+		_ = os.Remove(oldpath)
 		return fmt.Errorf("rename cross device empty file, %w", os.ErrNotExist)
 	}
-	defer os.Remove(oldpath)
+	if err := os.Remove(oldpath); err != nil {
+		return fmt.Errorf("rename cross device remove source: %w", err)
+	}
 	return nil
 }
 

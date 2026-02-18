@@ -2,6 +2,7 @@ package helper_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/Defacto2/helper"
@@ -109,5 +110,68 @@ func BenchmarkAdd1(b *testing.B) {
 		for _, val := range tests {
 			helper.Add1(val)
 		}
+	}
+}
+
+// BenchmarkDetermineUTF8 - UTF-8 text detection with emojis.
+func BenchmarkDetermineUTF8(b *testing.B) {
+	utf8Text := "Hello 👾 😀 🎮 This is UTF-8 text with emojis!"
+	b.ResetTimer()
+	for b.Loop() {
+		helper.Determine(strings.NewReader(utf8Text))
+	}
+}
+
+// BenchmarkDetermineUTF8WithBOM - UTF-8 with BOM (fast path).
+func BenchmarkDetermineUTF8WithBOM(b *testing.B) {
+	utf8WithBOM := "\xEF\xBB\xBFHello World - UTF-8 with BOM"
+	b.ResetTimer()
+	for b.Loop() {
+		helper.Determine(strings.NewReader(utf8WithBOM))
+	}
+}
+
+// BenchmarkDetermineCP437 - CP-437 text detection with ANSI art.
+func BenchmarkDetermineCP437(b *testing.B) {
+	cp437Text := "┌─────────────────────────────┐\n│ CP-437 ANSI Art Example │\n└─────────────────────────────┘"
+	b.ResetTimer()
+	for b.Loop() {
+		helper.Determine(strings.NewReader(cp437Text))
+	}
+}
+
+// BenchmarkDetermineLatin1 - ISO-8859-1 text detection.
+func BenchmarkDetermineLatin1(b *testing.B) {
+	latin1Text := "Café résumé naïve façade - Latin-1 text with accents"
+	b.ResetTimer()
+	for b.Loop() {
+		helper.Determine(strings.NewReader(latin1Text))
+	}
+}
+
+// BenchmarkDetermineASCII - Plain ASCII text (default case).
+func BenchmarkDetermineASCII(b *testing.B) {
+	asciiText := "This is plain ASCII text without any special characters"
+	b.ResetTimer()
+	for b.Loop() {
+		helper.Determine(strings.NewReader(asciiText))
+	}
+}
+
+// BenchmarkDetermineLargeUTF8 - Large UTF-8 file (64KB).
+func BenchmarkDetermineLargeUTF8(b *testing.B) {
+	largeUTF8 := strings.Repeat("Hello 👾 World! ", 1000)
+	b.ResetTimer()
+	for b.Loop() {
+		helper.Determine(strings.NewReader(largeUTF8))
+	}
+}
+
+// BenchmarkDetermineLargeCP437 - Large CP-437 file (64KB).
+func BenchmarkDetermineLargeCP437(b *testing.B) {
+	largeCP437 := strings.Repeat("┌────┐\n│Test│\n└────┘", 100)
+	b.ResetTimer()
+	for b.Loop() {
+		helper.Determine(strings.NewReader(largeCP437))
 	}
 }

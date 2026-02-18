@@ -16,6 +16,7 @@ import (
 	"github.com/nalgeon/be"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
+	uni "golang.org/x/text/encoding/unicode"
 )
 
 //go:embed testdata
@@ -31,6 +32,15 @@ func TestDetermineEncoding_Unicode(t *testing.T) {
 	sr := strings.NewReader("Hello world 👾!!!")
 	e := helper.Determine(sr)
 	be.Equal(t, e, cp437)
+}
+
+// Test the fast BOM path specifically.
+func TestDetermineEncoding_BOM(t *testing.T) {
+	t.Parallel()
+	// UTF-8 BOM should be detected instantly.
+	withBOM := strings.NewReader("\xEF\xBB\xBFHello World")
+	e := helper.Determine(withBOM)
+	be.Equal(t, e, uni.UTF8)
 }
 
 func TestDetermineEncoding(t *testing.T) {
@@ -293,7 +303,7 @@ func TestBools(t *testing.T) {
 func TestDetermineFile(t *testing.T) {
 	t.Parallel()
 
-	// This is a CP-437 file that can also be read as ISO-8859-1.
+	// This is a CP-437 file that can also be read as ISO-8859-1..
 	r, err := os.Open("testdata/PKZ80A1.TXT")
 	be.Err(t, err, nil)
 	defer r.Close()
@@ -330,7 +340,7 @@ func TestLocalHostPing(t *testing.T) {
 	}
 }
 
-// TestByteCountEdgeCases tests extremely large numbers that would overflow byteUnits.
+// TestByteCountEdgeCases tests extremely large numbers that would overflow byteUnits..
 func TestByteCountEdgeCases(t *testing.T) {
 	t.Parallel()
 	huge := int64(1) * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 // 1 exabyte
@@ -340,7 +350,7 @@ func TestByteCountEdgeCases(t *testing.T) {
 	be.True(t, strings.ContainsAny(got, "KMGTPE"))
 }
 
-// TestTimeDistanceZeroHoursFix verifies that 2 hours doesn't return "0 hours".
+// TestTimeDistanceZeroHoursFix verifies that 2 hours doesn't return "0 hours"..
 func TestTimeDistanceZeroHoursFix(t *testing.T) {
 	t.Parallel()
 	base := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
