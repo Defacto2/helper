@@ -23,12 +23,15 @@ import (
 )
 
 const (
+	DSStore  = ".DS_Store"       // DSStore is the macOS directory service store file.
+	TempBase = "defacto2-server" // TempBase is the base subdirectory for temporary files.
+)
+
+const (
 	// WriteWriteRead is the file mode for read and write access.
 	// The file owner and group has read and write access, and others have read access.
-	WriteWriteRead   fs.FileMode = 0o664             // WriteWriteRead is the file mode for read and write access.
-	DSStore                      = ".DS_Store"       // DSStore is the macOS directory service store file.
-	TempBase                     = "defacto2-server" // TempBase is the base subdirectory for temporary files.
-	DirWriteReadRead             = 0o755             // DirWriteReadRead sets directory permissions for read, write, and execute.
+	WriteWriteRead   fs.FileMode = 0o664 // WriteWriteRead is the file mode for read and write access.
+	DirWriteReadRead fs.FileMode = 0o755 // DirWriteReadRead sets directory permissions for read, write, and execute.
 )
 
 var errEmptyFile = errors.New("utf8: empty file")
