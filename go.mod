@@ -5,7 +5,7 @@ go 1.26.2
 require (
 	github.com/google/uuid v1.6.0
 	github.com/nalgeon/be v0.3.0
-	golang.org/x/sys v0.46.0
+	golang.org/x/sys v0.47.0
 	golang.org/x/text v0.38.0
 )
 
