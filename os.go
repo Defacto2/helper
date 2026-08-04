@@ -47,7 +47,8 @@ func CountExts(dir string) ([]Extension, error) {
 	exts := make(map[string]int64)
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("count extensions read directory: %w", err)
+		const format = "count extensions read directory: %w"
+		return nil, fmt.Errorf(format, err)
 	}
 	for _, file := range files {
 		if file.IsDir() {
@@ -77,17 +78,18 @@ func CountExts(dir string) ([]Extension, error) {
 
 // Count returns the number of files in the given directory.
 func Count(dir string) (int, error) {
+	const format = "count directory files %s %w"
 	i := 0
 	st, err := os.Stat(dir)
 	if err != nil {
-		return 0, fmt.Errorf("count os.stat %w", err)
+		return 0, fmt.Errorf(format, "os stat", err)
 	}
 	if !st.IsDir() {
 		return 0, fmt.Errorf("%w: %s", ErrDirPath, dir)
 	}
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return 0, fmt.Errorf("count os.readdir %w", err)
+		return 0, fmt.Errorf(format, "os readdir", err)
 	}
 	for _, file := range files {
 		if file.IsDir() {
@@ -138,25 +140,28 @@ func DuplicateOW(oldpath, newpath string) (int64, error) {
 	return duplicate(oldpath, newpath, createTruncate)
 }
 
-func duplicate(oldpath, newpath string, flag int) (int64, error) {
+func duplicate(oldpath, newpath string, flag int) (written int64, err error) {
+	const format = "duplicate %s %w"
 	src, err := os.Open(oldpath)
 	if err != nil {
-		return 0, fmt.Errorf("duplicate os.open %w", err)
+		return 0, fmt.Errorf(format, "open", err)
 	}
 	defer src.Close()
 
 	dst, err := os.OpenFile(newpath, flag, WriteWriteRead)
 	if err != nil {
-		return 0, fmt.Errorf("duplicate os.create %w", err)
+		return 0, fmt.Errorf(format, "create", err)
 	}
-	defer dst.Close()
-	const size = 4 * 1024
-	buf := make([]byte, size)
-	written, err := io.CopyBuffer(dst, src, buf)
+	defer func() {
+		if cErr := dst.Close(); cErr != nil {
+			err = errors.Join(err, fmt.Errorf(format, "close", cErr))
+		}
+	}()
+	n, err := io.Copy(dst, src)
 	if err != nil {
-		return 0, fmt.Errorf("duplicate io.copybuffer %w", err)
+		return 0, fmt.Errorf(format, "copy buffer", err)
 	}
-	return written, nil
+	return n, nil
 }
 
 // File returns true if the named file exists on the system.
@@ -176,16 +181,17 @@ func File(name string) bool {
 
 // Files returns the filenames in the given directory.
 func Files(dir string) ([]string, error) {
+	const format = "files %s %w"
 	st, err := os.Stat(dir)
 	if err != nil {
-		return nil, fmt.Errorf("files os.stat %w", err)
+		return nil, fmt.Errorf(format, "stat", err)
 	}
 	if !st.IsDir() {
 		return nil, fmt.Errorf("%w: %s", ErrDirPath, dir)
 	}
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("files os.readdir: %w", err)
+		return nil, fmt.Errorf(format, "readdir", err)
 	}
 	names := []string{}
 	for _, file := range files {
@@ -205,15 +211,16 @@ func Files(dir string) ([]string, error) {
 // if an error occurs while reading the files.
 // The read buffer size is 4096 bytes.
 func FileMatch(name1, name2 string) (bool, error) {
+	const format = "file match open %s: %w"
 	f1, err := os.Open(name1)
 	if err != nil {
-		return false, fmt.Errorf("file match os.open %s: %w", name1, err)
+		return false, fmt.Errorf(format, name1, err)
 	}
 	defer f1.Close()
 
 	f2, err := os.Open(name2)
 	if err != nil {
-		return false, fmt.Errorf("file match os.open %s: %w", name2, err)
+		return false, fmt.Errorf(format, name2, err)
 	}
 	defer f2.Close()
 	return fileMatch(f1, f2)
@@ -258,9 +265,10 @@ func Finds(name string, names ...string) bool {
 // This is intended to be used for Subresource Integrity (SRI)
 // verification with integrity attributes in HTML script and link tags.
 func Integrity(name string, fs embed.FS) (string, error) {
+	const format = "integrity fs readfile %w"
 	b, err := fs.ReadFile(name)
 	if err != nil {
-		return "", fmt.Errorf("integrity fs.readfile %w", err)
+		return "", fmt.Errorf(format, err)
 	}
 	return IntegrityBytes(b), nil
 }
@@ -268,9 +276,10 @@ func Integrity(name string, fs embed.FS) (string, error) {
 // IntegrityFile returns the sha384 hash of the named file.
 // This can be used as a link cache buster.
 func IntegrityFile(name string) (string, error) {
+	const format = "integrity os readfile %w"
 	b, err := os.ReadFile(name)
 	if err != nil {
-		return "", fmt.Errorf("integrity os.readfile %w", err)
+		return "", fmt.Errorf(format, err)
 	}
 	return IntegrityBytes(b), nil
 }
@@ -284,9 +293,10 @@ func IntegrityBytes(b []byte) string {
 
 // Lines returns the number of lines in the named file.
 func Lines(name string) (int, error) {
+	const format = "lines %s %w"
 	file, err := os.Open(name)
 	if err != nil {
-		return 0, fmt.Errorf("lines os.open %w", err)
+		return 0, fmt.Errorf(format, "open", err)
 	}
 	defer file.Close()
 
@@ -298,7 +308,7 @@ func Lines(name string) (int, error) {
 
 	err = scanner.Err()
 	if err != nil {
-		return 0, fmt.Errorf("lines scanner.scan %w", err)
+		return 0, fmt.Errorf(format, "scan", err)
 	}
 
 	return lines, nil
@@ -330,13 +340,14 @@ func MkContent(src string) (string, error) {
 // Owner returns the running user and group of the web application.
 // The function returns the group names and the username of the owner.
 func Owner() ([]string, string, error) {
+	const format = "owner user %s: %w"
 	curr, err := user.Current()
 	if err != nil {
-		return nil, "", fmt.Errorf("owner user current %w", err)
+		return nil, "", fmt.Errorf(format, "current", err)
 	}
 	grps, err := curr.GroupIds()
 	if err != nil {
-		return nil, "", fmt.Errorf("owner user group ids %w", err)
+		return nil, "", fmt.Errorf(format, "group ids", err)
 	}
 	groups := make([]string, 0, len(grps))
 	for _, id := range grps {
@@ -353,24 +364,26 @@ func Owner() ([]string, string, error) {
 // It returns an error if the oldpath does not exist or is a directory,
 // newpath already exists, or the rename fails.
 func RenameFile(oldpath, newpath string) error {
+	const format = "rename file %s %w"
 	st, err := os.Stat(oldpath)
 	if err != nil {
-		return fmt.Errorf("rename file os.stat %w", err)
+		return fmt.Errorf(format, "stat", err)
 	}
 	if st.IsDir() {
-		return fmt.Errorf("rename file oldpath %w: %s", ErrFilePath, oldpath)
+		return fmt.Errorf(format+": %s", "oldpath", ErrFilePath, oldpath)
 	}
 	_, err = os.Stat(newpath)
 	if err == nil {
-		return fmt.Errorf("rename file newpath %w: %s", ErrExistPath, newpath)
+		return fmt.Errorf(format+": %s", "newpath", ErrExistPath, newpath)
 	}
 	err = os.Rename(oldpath, newpath)
 	if err != nil {
 		var linkErr *os.LinkError
-		if errors.As(err, &linkErr) && linkErr.Err.Error() == "invalid cross-device link" {
+		const cross = "invalid cross-device link"
+		if errors.As(err, &linkErr) && linkErr.Err.Error() == cross {
 			return RenameCrossDevice(oldpath, newpath)
 		}
-		return fmt.Errorf("rename file os.rename %w", err)
+		return fmt.Errorf(format, "rename", err)
 	}
 	return nil
 }
@@ -389,34 +402,37 @@ func RenameFileOW(oldpath, newpath string) error {
 
 // RenameCrossDevice is a workaround for renaming files across different devices.
 // A cross device can also be a different file system such as a Docker volume.
-func RenameCrossDevice(oldpath, newpath string) error {
+func RenameCrossDevice(oldpath, newpath string) (err error) {
+	const format = "rename cross device %s %w"
 	src, err := os.Open(oldpath)
 	if err != nil {
-		return fmt.Errorf("rename cross device open source, %w", err)
+		return fmt.Errorf(format, "open source", err)
 	}
 	defer src.Close()
 	dst, err := os.Create(newpath)
 	if err != nil {
-		return fmt.Errorf("rename cross device create new, %w", err)
+		return fmt.Errorf(format, "create new", err)
 	}
-	defer dst.Close()
+	defer func() {
+		if cErr := dst.Close(); cErr != nil {
+			err = errors.Join(err, fmt.Errorf(format, "close", cErr))
+		}
+	}()
 
-	const size = 4 * 1024
-	buf := make([]byte, size)
-	if _, err = io.CopyBuffer(dst, src, buf); err != nil {
-		return fmt.Errorf("rename cross device copy %w", err)
+	if _, err = io.Copy(dst, src); err != nil {
+		return fmt.Errorf(format, "copy", err)
 	}
 
 	if fi, err := os.Stat(oldpath); err != nil {
 		_ = os.Remove(newpath)
-		return fmt.Errorf("rename cross device stat %w", err)
+		return fmt.Errorf(format, "stat", err)
 	} else if fi.Size() == 0 {
 		_ = os.Remove(newpath)
 		_ = os.Remove(oldpath)
-		return fmt.Errorf("rename cross device empty file, %w", os.ErrNotExist)
+		return fmt.Errorf(format, "empty file", os.ErrNotExist)
 	}
 	if err := os.Remove(oldpath); err != nil {
-		return fmt.Errorf("rename cross device remove source: %w", err)
+		return fmt.Errorf(format, "remove source", err)
 	}
 	return nil
 }
@@ -457,27 +473,29 @@ func SortNames(sep string, names []string) []string {
 
 // StrongIntegrity returns the SHA-386 checksum value of the named file.
 func StrongIntegrity(name string) (string, error) {
+	const format = "strong integrity %s: %w"
 	// strong hashes require the named file to be reopened after being read.
 	f, err := os.Open(name)
 	if err != nil {
-		return "", fmt.Errorf("strong integrity open %w: %s", err, name)
+		return "", fmt.Errorf(format, "open", err)
 	}
 	defer f.Close()
 	strong, err := Sum386(f)
 	if err != nil {
-		return "", fmt.Errorf("strong integrity %w", err)
+		return "", fmt.Errorf(format, "sum", err)
 	}
 	return strong, nil
 }
 
 // Sum386 returns the SHA-386 checksum value of the open file.
 func Sum386(f *os.File) (string, error) {
+	const format = "sha386 checksum %s: %w"
 	if f == nil {
 		return "", ErrOSFile
 	}
 	strong := sha512.New384()
 	if _, err := io.Copy(strong, f); err != nil {
-		return "", fmt.Errorf("sha386 checksum %s: %w", f.Name(), err)
+		return "", fmt.Errorf(format, f.Name(), err)
 	}
 	s := hex.EncodeToString(strong.Sum(nil))
 	return s, nil
@@ -496,55 +514,59 @@ func TmpDir() string {
 // Touch creates a new, empty named file.
 // If the file already exists, an error is returned.
 func Touch(name string) error {
-	file, err := os.OpenFile(name, os.O_CREATE|os.O_EXCL, WriteWriteRead)
+	const format = "touch file %s %w"
+	const flag = os.O_CREATE | os.O_EXCL
+	file, err := os.OpenFile(name, flag, WriteWriteRead)
 	if err != nil {
-		return fmt.Errorf("touch open file %w", err)
+		return fmt.Errorf(format, "open", err)
 	}
 	if err := file.Close(); err != nil {
-		return fmt.Errorf("touch file close %w", err)
+		return fmt.Errorf(format, "close", err)
 	}
 	return nil
 }
 
 // TouchW creates a new named file with the given data.
 // If the file already exists, an error is returned.
-func TouchW(name string, data ...byte) (int, error) {
-	file, err := os.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, WriteWriteRead)
+func TouchW(name string, data ...byte) (written int, err error) {
+	const flag = os.O_CREATE | os.O_EXCL | os.O_WRONLY
+	const format = "touch w file %s %w"
+	file, err := os.OpenFile(name, flag, WriteWriteRead)
 	if err != nil {
-		return 0, fmt.Errorf("touch write open file %w", err)
+		return 0, fmt.Errorf(format, "open", err)
 	}
-	if len(data) == 0 {
-		if err := file.Close(); err != nil {
-			return 0, fmt.Errorf("touch write open file close %w", err)
+	defer func() {
+		if cErr := file.Close(); cErr != nil {
+			err = errors.Join(err, fmt.Errorf(format, "close", cErr))
 		}
+	}()
+	if len(data) == 0 {
 		return 0, nil
 	}
-	i, err := file.Write(data)
+	n, err := file.Write(data)
 	if err != nil {
-		return 0, fmt.Errorf("touch write file write %w", err)
+		return 0, fmt.Errorf(format, "write", err)
 	}
-	if err := file.Close(); err != nil {
-		return 0, fmt.Errorf("touch write file write close %w", err)
-	}
-	return i, nil
+	return n, nil
 }
 
 // UTF8 returns true if the named file is a valid UTF-8 encoded file.
 // The function reads the first 512 bytes of the file to determine the encoding.
 func UTF8(name string) (bool, error) {
+	const format = "utf8 %s %w"
 	f, err := os.Open(name)
 	if err != nil {
-		return false, fmt.Errorf("utf8 open %w", err)
+		return false, fmt.Errorf(format, "open", err)
 	}
 	defer f.Close()
 	const sample = 512
 	buf := make([]byte, sample)
 	n, err := f.Read(buf)
 	if n == 0 {
-		return false, fmt.Errorf("utf8 read %w", errEmptyFile)
+		return false, fmt.Errorf(format, "read", errEmptyFile)
 	}
 	if err != nil && !errors.Is(err, io.EOF) {
-		return false, fmt.Errorf("utf8 read %w", err)
+		return false, fmt.Errorf(format, "read", err)
 	}
 	return utf8.Valid(buf[:n]), nil
 }

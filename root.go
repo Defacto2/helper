@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -24,26 +25,28 @@ func DuplicaterOW(r *os.Root, name, newname string) (int64, error) {
 	return duplicater(r, name, newname, createTruncate)
 }
 
-func duplicater(r *os.Root, name, newname string, flag int) (int64, error) {
+func duplicater(r *os.Root, name, newname string, flag int) (written int64, err error) {
+	const format = "duplicater %s %w"
 	src, err := r.Open(name)
 	if err != nil {
-		return 0, fmt.Errorf("r duplicate os.open %w", err)
+		return 0, fmt.Errorf(format, "open", err)
 	}
 	defer src.Close()
 
 	dst, err := r.OpenFile(newname, flag, WriteWriteRead)
 	if err != nil {
-		return 0, fmt.Errorf("r duplicate os.create %w", err)
+		return 0, fmt.Errorf(format, "create", err)
 	}
-	defer dst.Close()
-
-	const size = 4 * 1024
-	buf := make([]byte, size)
-	written, err := io.CopyBuffer(dst, src, buf)
+	defer func() {
+		if cErr := dst.Close(); cErr != nil {
+			err = errors.Join(err, fmt.Errorf(format, "close destination", cErr))
+		}
+	}()
+	n, err := io.Copy(dst, src)
 	if err != nil {
-		return 0, fmt.Errorf("r duplicate io.copy %w", err)
+		return 0, fmt.Errorf(format, "io copy", err)
 	}
-	return written, nil
+	return n, nil
 }
 
 // FileMatchR returns true if the two named files are the same.
@@ -51,14 +54,15 @@ func duplicater(r *os.Root, name, newname string, flag int) (int64, error) {
 // if an error occurs while reading the files.
 // The read buffer size is 4096 bytes.
 func FileMatchR(r *os.Root, name1, name2 string) (bool, error) {
+	const format = "file match open %s: %w"
 	f1, err := r.Open(name1)
 	if err != nil {
-		return false, fmt.Errorf("file match os.open %s: %w", name1, err)
+		return false, fmt.Errorf(format, name1, err)
 	}
 	defer f1.Close()
 	f2, err := r.Open(name2)
 	if err != nil {
-		return false, fmt.Errorf("file match os.open %s: %w", name2, err)
+		return false, fmt.Errorf(format, name2, err)
 	}
 	defer f2.Close()
 	return fileMatch(f1, f2)
@@ -68,20 +72,21 @@ func FileMatchR(r *os.Root, name1, name2 string) (bool, error) {
 // It returns an error if the oldname does not exist or is a directory,
 // newname already exists, or the rename fails.
 func RenameRoot(r *os.Root, oldname, newname string) error {
+	const format = "rename file %s: %w"
 	st, err := r.Stat(oldname)
 	if err != nil {
-		return fmt.Errorf("rename file r.stat %w", err)
+		return fmt.Errorf(format, "stat", err)
 	}
 	if st.IsDir() {
-		return fmt.Errorf("rename file oldname %w: %s", ErrFilePath, oldname)
+		return fmt.Errorf(format+" %s", "oldname", ErrFilePath, oldname)
 	}
 	if _, err = r.Stat(newname); err == nil {
-		return fmt.Errorf("rename file newname %w: %s", ErrExistPath, newname)
+		return fmt.Errorf(format+" %s", "newname", ErrExistPath, newname)
 	}
 	oldpath := filepath.Join(r.Name(), oldname)
 	newpath := filepath.Join(r.Name(), newname)
 	if err := os.Rename(oldpath, newpath); err != nil {
-		return fmt.Errorf("rename file os.rename %w", err)
+		return fmt.Errorf(format, "os rename", err)
 	}
 	return nil
 }
@@ -99,14 +104,15 @@ func RenameRootOW(r *os.Root, oldname, newname string) error {
 
 // StrongIntegrityR returns the SHA-386 checksum value of the named file..
 func StrongIntegrityR(r *os.Root, name string) (string, error) {
+	const format = "strong integrity %s: %w"
 	f, err := r.Open(name)
 	if err != nil {
-		return "", fmt.Errorf("strong integrity os.open %s: %w", name, err)
+		return "", fmt.Errorf(format, "open", err)
 	}
 	defer f.Close()
 	strong, err := Sum386(f)
 	if err != nil {
-		return "", fmt.Errorf("strong integrity %w", err)
+		return "", fmt.Errorf(format, "sum", err)
 	}
 	return strong, nil
 }
@@ -114,35 +120,39 @@ func StrongIntegrityR(r *os.Root, name string) (string, error) {
 // TouchR creates a new, empty named file..
 // If the file already exists, an error is returned.
 func TouchR(r *os.Root, name string) error {
-	f, err := r.OpenFile(name, os.O_CREATE|os.O_EXCL, WriteWriteRead)
+	const format = "touch r %s file %w"
+	const flag = os.O_CREATE | os.O_EXCL
+	f, err := r.OpenFile(name, flag, WriteWriteRead)
 	if err != nil {
-		return fmt.Errorf("touch open file %w", err)
+		return fmt.Errorf(format, "open", err)
 	}
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("touch file close %w", err)
+		return fmt.Errorf(format, "close", err)
 	}
 	return nil
 }
 
 // TouchWR creates a new named file with the given data..
 // If the file already exists, an error is returned.
-func TouchWR(r *os.Root, name string, data ...byte) (int, error) {
-	file, err := r.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, WriteWriteRead)
+func TouchWR(r *os.Root, name string, data ...byte) (written int, err error) {
+	const format = "touch wr %s file %w"
+	const flag = os.O_CREATE | os.O_EXCL | os.O_WRONLY
+	file, err := r.OpenFile(name, flag, WriteWriteRead)
 	if err != nil {
-		return 0, fmt.Errorf("touch write open file %w", err)
+		return 0, fmt.Errorf(format, "open", err)
 	}
-	if len(data) == 0 {
-		if err := file.Close(); err != nil {
-			return 0, fmt.Errorf("touch write open file close %w", err)
+	defer func() {
+		if cErr := file.Close(); cErr != nil {
+			err = errors.Join(err, fmt.Errorf(format, "close", cErr))
 		}
+	}()
+
+	if len(data) == 0 {
 		return 0, nil
 	}
 	i, err := file.Write(data)
 	if err != nil {
-		return 0, fmt.Errorf("touch write file write %w", err)
-	}
-	if err := file.Close(); err != nil {
-		return 0, fmt.Errorf("touch write file write close %w", err)
+		return 0, fmt.Errorf(format, "write", err)
 	}
 	return i, nil
 }

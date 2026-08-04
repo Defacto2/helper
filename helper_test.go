@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -320,15 +319,15 @@ func TestLocalHostPing(t *testing.T) {
 		expect    int
 		expectErr bool
 	}{
-		{"/", "http", 80, http.StatusInternalServerError, true},
-		{"/", "http", 7654, http.StatusInternalServerError, true},
-		{"/", "https", 443, http.StatusInternalServerError, true},
+		{"/", "http", 80, 0, true},
+		{"/", "http", 7654, 0, true},
+		{"/", "https", 443, 0, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s://localhost:%d%s", tt.proto, tt.port, tt.uri), func(t *testing.T) {
 			t.Parallel()
-			status, size, err := helper.LocalHostPing(tt.uri, tt.proto, tt.port)
+			status, size, err := helper.LocalHostPing(t.Context(), tt.uri, tt.proto, tt.port)
 			if tt.expectErr {
 				be.Err(t, err)
 			} else {

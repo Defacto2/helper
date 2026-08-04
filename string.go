@@ -116,6 +116,7 @@ func ChrLast(s string) string {
 // CfUUID formats a 35 character, Coldfusion Universally Unique Identifier.
 // to a standard, 36 character, Universally Unique Identifier.
 func CfUUID(cfid string) (string, error) {
+	const format = "cfuuid validate: %w"
 	if err := uuid.Validate(cfid); err == nil {
 		return cfid, nil
 	}
@@ -127,7 +128,7 @@ func CfUUID(cfid string) (string, error) {
 	newid := string(r)
 	err := uuid.Validate(newid)
 	if err != nil {
-		return "", fmt.Errorf("cfuuid validate %w", err)
+		return "", fmt.Errorf(format, err)
 	}
 	return newid, nil
 }
@@ -220,20 +221,22 @@ func DeobfuscateURL(rawURL string) int {
 // FmtSlice formats a comma separated string..
 func FmtSlice(s string) string {
 	x := []string{}
-	for part := range strings.SplitSeq(s, ",") {
+	const sep = ","
+	for part := range strings.SplitSeq(s, sep) {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
 		x = append(x, Capitalize(part))
 	}
-	return strings.Join(x, ", ")
+	return strings.Join(x, sep+" ")
 }
 
 // MaxLineLength counts the character length of the longest line in a string..
 func MaxLineLength(s string) int {
 	maxLen := 0
-	for line := range strings.SplitSeq(s, "\n") {
+	const sep = "\n"
+	for line := range strings.SplitSeq(s, sep) {
 		if n := utf8.RuneCountInString(line); n > maxLen {
 			maxLen = n
 		}
@@ -673,7 +676,8 @@ func ReverseInt(i int) (int, error) {
 
 	reverse, err := strconv.Atoi(str.String())
 	if err != nil {
-		return 0, fmt.Errorf("reverse integer %d: %w", i, err)
+		const format = "reverse integer %d: %w"
+		return 0, fmt.Errorf(format, i, err)
 	}
 
 	return reverse, nil
@@ -685,7 +689,8 @@ func SearchTerm(input string) []string {
 	if input == "" {
 		return []string{}
 	}
-	terms := strings.Split(input, ",")
+	const sep = ","
+	terms := strings.Split(input, sep)
 	// join the two slices
 	s := make([]string, 0, len(terms))
 	for term := range slices.Values(terms) {
@@ -818,8 +823,7 @@ func TrimPunct(s string) string {
 		return ""
 	}
 	rs := []rune(s)
-	for i := len(rs) - 1; i >= 0; i-- {
-		r := rs[i]
+	for i, r := range slices.Backward(rs) {
 		// https://www.compart.com/en/unicode/category/Po
 		if !unicode.Is(unicode.Po, r) {
 			punctless := string(rs[0 : i+1])
@@ -832,11 +836,12 @@ func TrimPunct(s string) string {
 // Years returns a string of the years if they are different..
 // If they are the same, it returns a singular year.
 func Years(a, b int16) string {
+	const format = "the year"
 	if a == b {
-		return fmt.Sprintf("the year %d", a)
+		return fmt.Sprintf(format+" %d", a)
 	}
 	if b-a == 1 {
-		return fmt.Sprintf("the years %d and %d", a, b)
+		return fmt.Sprintf(format+"s %d and %d", a, b)
 	}
-	return fmt.Sprintf("the years %d - %d", a, b)
+	return fmt.Sprintf(format+"s %d - %d", a, b)
 }
