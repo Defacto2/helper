@@ -124,7 +124,7 @@ func TestLines(t *testing.T) {
 	be.Err(t, err, nil)
 	name := filepath.Join(dir, "TEST.BMP")
 	got, err = helper.Lines(name)
-	be.Err(t, err)
+	be.Err(t, err, nil)
 	be.Equal(t, got, 0)
 	name = filepath.Join(dir, "PKZ80A1.TXT")
 	got, err = helper.Lines(name)
