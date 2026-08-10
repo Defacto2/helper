@@ -5,14 +5,14 @@ package helper
 import (
 	"bytes"
 	"fmt"
-	"math"
+	"math/bits"
 	"net/url"
 	"path"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -31,36 +31,22 @@ const (
 	obfuscateSum = 154
 )
 
-var (
-	// Compiled regex patterns for Slug() - compiled once, reused many times..
-	slugRegex1 = regexp.MustCompile(`\-`)
-	slugRegex2 = regexp.MustCompile(`\, `)
-	slugRegex3 = regexp.MustCompile(` \& `)
-	slugRegex4 = regexp.MustCompile(` ([0-9])`)
-	slugRegex5 = regexp.MustCompile(`[^A-Za-z0-9 \-\+\.\_\*]`)
-	slugRegex6 = regexp.MustCompile(` `)
-)
-
 // ByteCount formats b as in a compact, human-readable unit of measure.
-//
-// Source: [yourbasic]
-//
-// [yourbasic]: https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
 func ByteCount(b int64) string {
 	const unit = 1024
+	const base = 10
 	if b < unit {
-		return fmt.Sprintf("%dB", b)
+		return strconv.FormatInt(b, base) + "B"
 	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
+
+	u := uint64(b)
+	exp := (bits.Len64(u)-1)/base - 1
 	if exp >= len(byteUnits) {
 		exp = len(byteUnits) - 1
 	}
-	return fmt.Sprintf("%.0f%c",
-		float64(b)/float64(div), byteUnits[exp])
+	div := uint64(1) << ((exp + 1) * base)
+	val := float64(u) / float64(div)
+	return strconv.FormatFloat(val, 'f', 0, 64) + string(byteUnits[exp])
 }
 
 // ByteCountFloat formats b in a human-readable unit of measure.
@@ -68,23 +54,30 @@ func ByteCount(b int64) string {
 func ByteCountFloat(b int64) string {
 	const unit = 1000
 	if b < unit {
-		return fmt.Sprintf("%d bytes", b)
+		return strconv.FormatInt(b, 10) + " bytes"
 	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
+
+	u := uint64(b)
+	exp := 0
+	div := uint64(unit)
+
+	for n := u / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
 	}
+
 	if exp >= len(byteUnits) {
 		exp = len(byteUnits) - 1
 	}
-	const gigabyte = 2
-	if exp < gigabyte {
-		return fmt.Sprintf("%.0f %cB",
-			float64(b)/float64(div), byteUnits[exp])
+
+	val := float64(u) / float64(div)
+	prec := 0
+	const giga = 2
+	if exp >= giga {
+		prec = 1
 	}
-	return fmt.Sprintf("%.1f %cB",
-		float64(b)/float64(div), byteUnits[exp])
+
+	return strconv.FormatFloat(val, 'f', prec, 64) + " " + string(byteUnits[exp]) + "B"
 }
 
 // Capitalize returns a string with the first letter of the first word capitalized..
@@ -93,14 +86,15 @@ func Capitalize(s string) string {
 	if s == "" {
 		return ""
 	}
-	const sep = " "
+
 	caser := cases.Title(language.English)
-	x := strings.Split(s, sep)
-	const req = 2
-	if len(x) < req {
+
+	i := strings.IndexByte(s, ' ')
+	if i == -1 {
 		return caser.String(s)
 	}
-	return caser.String(x[0]) + sep + strings.Join(x[1:], sep)
+
+	return caser.String(s[:i]) + s[i:]
 }
 
 // ChrLast returns the last character or rune of the string..
@@ -109,8 +103,8 @@ func ChrLast(s string) string {
 	if s == "" {
 		return ""
 	}
-	r, _ := utf8.DecodeLastRuneInString(s)
-	return string(r)
+	_, size := utf8.DecodeLastRuneInString(s)
+	return s[len(s)-size:]
 }
 
 // CfUUID formats a 35 character, Coldfusion Universally Unique Identifier.
@@ -120,14 +114,24 @@ func CfUUID(cfid string) (string, error) {
 	if err := uuid.Validate(cfid); err == nil {
 		return cfid, nil
 	}
-	const pos = 23
-	const hyphen = '-'
+
 	old := strings.TrimSpace(cfid)
-	r := []rune(old)
-	r = append(r[:pos], append([]rune{hyphen}, r[pos:]...)...)
-	newid := string(r)
-	err := uuid.Validate(newid)
-	if err != nil {
+
+	// ColdFusion UUID format: xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxxxxxx (35 chars)
+	// Standard UUID format:   xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars)
+	const cfLen = 35
+	const pos = 23
+	if len(old) != cfLen {
+		return "", fmt.Errorf(format, uuid.Validate(old))
+	}
+
+	var b [36]byte
+	copy(b[:pos], old[:pos])
+	b[pos] = '-'
+	copy(b[pos+1:], old[pos:])
+
+	newid := string(b[:])
+	if err := uuid.Validate(newid); err != nil {
 		return "", fmt.Errorf(format, err)
 	}
 	return newid, nil
@@ -136,14 +140,10 @@ func CfUUID(cfid string) (string, error) {
 // DeleteDupe removes duplicate strings from a slice..
 // The returned slice is sorted and compacted.
 func DeleteDupe(s ...string) []string {
-	seen := make(map[string]bool)
-	for _, val := range s {
-		seen[val] = true
+	if len(s) == 0 {
+		return []string{}
 	}
-	x := make([]string, 0, len(seen))
-	for val := range seen {
-		x = append(x, val)
-	}
+	x := slices.Clone(s)
 	slices.Sort(x)
 	return slices.Compact(x)
 }
@@ -154,56 +154,61 @@ func DeleteDupe(s ...string) []string {
 //
 // [deobfuscateParam]: https://github.com/cfwheels/cfwheels/blob/main/wheels/global/misc.cfm
 func DeObfuscate(s string) string {
-	const checksum, decimal = 2, 10
+	const checksum = 2
 	if len(s) < checksum {
 		return s
 	}
-	if i, _ := strconv.Atoi(s); i > 0 {
-		return s
-	}
-	// deobfuscate string
-	num, err := strconv.ParseInt(s[checksum:], hexadecimal, 0)
-	if err != nil {
-		return s
-	}
-	num ^= obfuscateXOR
-	baseNum := strconv.Itoa(int(num))
-	l := len(baseNum) - 1
-	var value strings.Builder
-	for i := range l {
-		f := baseNum[l-i:][:1]
-		value.WriteString(f)
-	}
-	// create checks
-	valueStr := value.String()
-	l = len(valueStr)
-	chksumTest := 0
-	for i := range l {
-		chr := valueStr[i : i+1]
-		n, err1 := strconv.Atoi(chr)
-		if err1 != nil {
-			return s
-		}
-		chksumTest += n
-	}
-	// run checks
-	chksum, err := strconv.ParseInt(s[:2], hexadecimal, 0)
-	if err != nil {
-		return s
-	}
-	chksumX := strconv.FormatInt(chksum, decimal)
-	chksumY := strconv.FormatInt(int64(chksumTest+obfuscateSum), decimal)
-	if chksumX != chksumY {
+
+	if _, err := strconv.Atoi(s); err == nil {
 		return s
 	}
 
-	return valueStr
+	num, err := strconv.ParseInt(s[checksum:], hexadecimal, 64)
+	if err != nil {
+		return s
+	}
+
+	// format XOR'd number to base-10 digits byte-buffer
+	num ^= obfuscateXOR
+	baseNum := strconv.FormatInt(num, 10)
+	length := len(baseNum)
+	if length <= 1 {
+		return s
+	}
+
+	// reverse the digits (excluding original index 0)
+	// and calculate checksum sum in a single pass without string allocations
+	values := make([]byte, length-1)
+	chksumTest := 0
+
+	for i := range length - 1 {
+		b := baseNum[length-1-i]
+		if b < '0' || b > '9' {
+			return s
+		}
+		values[i] = b
+		chksumTest += int(b - '0')
+	}
+
+	headerChecksum, err := strconv.ParseInt(s[:checksum], hexadecimal, 64)
+	if err != nil {
+		return s
+	}
+	// validate header checksum against sum of reversed digits + obfuscateSum offset
+	if headerChecksum != int64(chksumTest+obfuscateSum) {
+		return s
+	}
+
+	return string(values)
 }
 
 // DeobfuscateID deobfuscates an obfuscated ID to return the primary key of the record..
 // Returns a 0 if the id is not valid.
 func DeobfuscateID(id string) int {
-	key, _ := strconv.Atoi(DeObfuscate(id))
+	key, err := strconv.Atoi(DeObfuscate(id))
+	if err != nil {
+		return 0
+	}
 	return key
 }
 
@@ -215,28 +220,38 @@ func DeobfuscateURL(rawURL string) int {
 	if err != nil {
 		return 0
 	}
-	return DeobfuscateID(path.Base(u.Path))
+	p := strings.TrimRight(u.Path, "/")
+	if p == "" {
+		return 0
+	}
+	return DeobfuscateID(path.Base(p))
 }
 
 // FmtSlice formats a comma separated string..
 func FmtSlice(s string) string {
-	x := []string{}
+	var b strings.Builder
 	const sep = ","
+
 	for part := range strings.SplitSeq(s, sep) {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
-		x = append(x, Capitalize(part))
+
+		if b.Len() > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(Capitalize(part))
 	}
-	return strings.Join(x, sep+" ")
+
+	return b.String()
 }
 
-// MaxLineLength counts the character length of the longest line in a string..
+// MaxLineLength counts the character/rune length of the longest line in a string,
+// that is split strictly by newline (\n).
 func MaxLineLength(s string) int {
 	maxLen := 0
-	const sep = "\n"
-	for line := range strings.SplitSeq(s, sep) {
+	for line := range strings.SplitSeq(s, "\n") {
 		if n := utf8.RuneCountInString(line); n > maxLen {
 			maxLen = n
 		}
@@ -253,11 +268,11 @@ const (
 var (
 	// Pre-computed mask strings for Mask() - computed once, reused many times.
 	//nolint:gochecknoglobals
-	maskChrs29 = strings.Repeat("0", Chrs29)
+	maskChrs29 = bytes.Repeat([]byte{'0'}, Chrs29)
 	//nolint:gochecknoglobals
-	maskChrs25 = strings.Repeat("0", Chrs25)
+	maskChrs25 = bytes.Repeat([]byte{'0'}, Chrs25)
 	//nolint:gochecknoglobals
-	maskChrs24 = strings.Repeat("0", Chrs24)
+	maskChrs24 = bytes.Repeat([]byte{'0'}, Chrs24)
 )
 
 // Mask runs a performant scan of the bytes and replaces any matching.
@@ -283,32 +298,35 @@ var (
 // Would be masked with:
 // "Hello world 000000000000000000000000 example".
 func Mask(p ...byte) []byte {
-	out := bytes.NewBuffer(nil)
+	out := bytes.NewBuffer(make([]byte, 0, len(p)))
 	i := 0
 	for i < len(p) {
 		switch {
 		case serial5x5(i, p), serial6x4(i, p):
-			out.WriteString(maskChrs29)
+			out.Write(maskChrs29)
 			i += Chrs29
 			continue
 		case serial4774(i, p), digit4774(i, p):
-			out.WriteString(maskChrs25)
+			out.Write(maskChrs25)
 			i += Chrs25
 			continue
 		case serial5x4(i, p):
-			out.WriteString(maskChrs24)
+			out.Write(maskChrs24)
 			i += Chrs24
 			continue
 		case Phone(i, p), PhoneEuro(i, p), PhoneDE(i, p):
 			// 123-5678
-			mask := fmt.Sprintf("%s$$%s", p[i:i+5], string(p[i+7:i+8]))
-			out.WriteString(mask)
+			out.Write(p[i : i+5])
+			out.WriteString("$$")
+			out.WriteByte(p[i+7])
 			i += 8
 			continue
 		default:
 			if x := IndexTerm(i, p); x > 0 {
-				mask := fmt.Sprintf("%s%s", p[i:i+1], strings.Repeat("x", x-1))
-				out.WriteString(mask)
+				out.WriteByte(p[i])
+				for range x - 1 {
+					out.WriteByte('x')
+				}
 				i += x
 				continue
 			}
@@ -326,20 +344,23 @@ func Mask(p ...byte) []byte {
 //
 // MaskTerm should not be used with [Mask] as it duplicates functionality.
 func MaskTerm(p ...byte) []byte {
-	out := bytes.NewBuffer(nil)
+	out := bytes.NewBuffer(make([]byte, 0, len(p)))
 	i := 0
+
 	for i < len(p) {
 		if x := IndexTerm(i, p); x > 0 {
-			mask := fmt.Sprintf("%s%s", p[i:i+1], strings.Repeat("x", x-1))
-			out.WriteString(mask)
+			out.WriteByte(p[i])
+			for range x - 1 {
+				out.WriteByte('x')
+			}
 			i += x
+			continue
 		}
-		if i >= len(p) {
-			break
-		}
+
 		out.WriteByte(p[i])
 		i++
 	}
+
 	return out.Bytes()
 }
 
@@ -349,68 +370,54 @@ func MaskTerm(p ...byte) []byte {
 //
 // The predefined list are items that can trigger online bots.
 func IndexTerm(i int, p []byte) int {
-	// these terms are intentionally fragmented
-	matches := []string{
-		// generic
-		"cd-k" + "ey", "cd" + " key", "c" +
-			"racke" + "d", "key " + "code", "k" +
-			"ey file", "k" +
-			"eyfile", "k" +
-			"ey gen", "k" +
-			"eygen", "k" +
-			"eymaker", "l" +
-			"ice" + "nse " + "code", "pas" +
-			"sword", "s" + "er" +
-			"ial",
-		// brands
-		"m" + "icro" +
-			"soft", "c" +
-			"orel", "s" +
-			"pacial audio " +
-			"solution", "p" +
-			"arallels " +
-			"inc", "p" + "aint" +
-			"shop",
-		"a" +
-			"dobe", "a" +
-			"cronis", "s" + "am " + "b" + "road" +
-			"caster", "n" +
-			"intend" +
-			"o", "s" +
-			"ony",
-	}
-	for _, match := range matches {
-		l := len(match) // 6
-		if i+l <= len(p) && bytes.EqualFold(p[i+0:i+l], []byte(match)) {
+	sub := p[i:]
+	terms := terms()
+	for _, term := range terms {
+		l := len(term)
+		if len(sub) >= l && bytes.EqualFold(sub[:l], term) {
 			return l
 		}
 	}
 	return 0
 }
 
+// terms are intentionally fragmented and are kept as a var for caching.
+//
+//nolint:gochecknoglobals
+var terms = sync.OnceValue(func() [][]byte {
+	return [][]byte{
+		// generic
+		[]byte("cd-k" + "ey"), []byte("cd" + " key"), []byte("c" + "racke" + "d"),
+		[]byte("key " + "code"), []byte("k" + "ey file"), []byte("k" + "eyfile"),
+		[]byte("k" + "ey gen"), []byte("k" + "eygen"), []byte("k" + "eymaker"),
+		[]byte("l" + "ice" + "nse " + "code"), []byte("pas" + "sword"), []byte("s" + "er" + "ial"),
+		// brands
+		[]byte("m" + "icro" + "soft"), []byte("c" + "orel"),
+		[]byte("s" + "pacial audio " + "solution"), []byte("p" + "arallels " + "inc"),
+		[]byte("p" + "aint" + "shop"), []byte("a" + "dobe"), []byte("a" + "cronis"),
+		[]byte("s" + "am " + "b" + "road" + "caster"), []byte("n" + "intend" + "o"), []byte("s" + "ony"),
+	}
+})
+
 // Alpha09 returns true if the slice of bytes exclusively contains.
 // alphanumeric characters. Everything else including punctuation returns false.
 // i is the index position and n is the number of bytes to match.
-//
-//nolint:cyclop
 func Alpha09(b []byte, i, n int) bool {
 	if i < 0 || n <= 0 || i+n > len(b) {
 		return false
 	}
-	for k := range n {
-		c := b[i+k]
-		switch {
-		case c >= '0' && c <= '9':
-			continue
-		case c >= 'A' && c <= 'Z':
-			continue
-		case c >= 'a' && c <= 'z':
-			continue
-		default:
+	for _, c := range b[i : i+n] {
+		if !isAlphaNum(c) {
 			return false
 		}
 	}
 	return true
+}
+
+func isAlphaNum(c byte) bool {
+	return (c >= '0' && c <= '9') ||
+		(c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z')
 }
 
 // Digits returns true if the slice of bytes is a sequence of digits..
@@ -419,8 +426,7 @@ func Digits(b []byte, i, n int) bool {
 	if i < 0 || n <= 0 || i+n > len(b) {
 		return false
 	}
-	for k := range n {
-		c := b[i+k]
+	for _, c := range b[i : i+n] {
 		if c < '0' || c > '9' {
 			return false
 		}
@@ -429,155 +435,183 @@ func Digits(b []byte, i, n int) bool {
 }
 
 // Phone matches a 3-4, 7 digit telephone number, i.e., "555-1234"..
-//
-//nolint:mnd
 func Phone(i int, p []byte) bool {
-	if i+7 <= len(p) &&
-		Digits(p, i, 3) &&
-		p[i+3] == '-' &&
-		Digits(p, i+4, 4) {
-		return true
+	const length = 8 // 3 digits + '-' + 4 digits
+	if i < 0 || i+length > len(p) {
+		return false
 	}
-	return false
+	const prefix, suffix = 3, 4
+	return p[i+3] == '-' && Digits(p, i, prefix) && Digits(p, i+suffix, suffix)
 }
 
 // PhoneDE matches a 3-3-3, 9 digit telephone number, i.e., "555-123-456"..
-//
-//nolint:mnd
 func PhoneDE(i int, p []byte) bool {
-	if i+9 <= len(p) &&
-		Digits(p, i, 3) &&
-		p[i+3] == '-' &&
-		Digits(p, i+4, 3) &&
-		p[i+7] == '-' &&
-		Digits(p, i+4+4, 3) {
-		return true
+	const length = 11 // 3 + '-' + 3 + '-' + 3
+	if i < 0 || i+length > len(p) {
+		return false
 	}
-	return false
+	const n = 3
+	const midoff = 4
+	const endoff = 8
+	return p[i+3] == '-' &&
+		p[i+7] == '-' &&
+		Digits(p, i, n) &&
+		Digits(p, i+midoff, n) &&
+		Digits(p, i+endoff, n)
 }
 
 // PhoneEuro matches a 2-6, 8 digit telephone number, i.e., "55-123456"..
-//
-//nolint:mnd
 func PhoneEuro(i int, p []byte) bool {
-	if i+8 <= len(p) &&
-		Digits(p, i, 2) &&
-		p[i+2] == '-' &&
-		Digits(p, i+3, 6) {
-		return true
+	const length = 9 // 2 + '-' + 6
+	if i < 0 || i+length > len(p) {
+		return false
 	}
-	return false
+	const prefix = 2
+	const suffix = 3
+	const digits = 6
+	return p[i+2] == '-' &&
+		Digits(p, i, prefix) &&
+		Digits(p, i+suffix, digits)
 }
 
 // NANP matches an areacode and a 7 digit number, i.e., 305-555-1234..
 // However, area codes below 200 are not matched, ie 199-555-1234.
-//
-//nolint:mnd
 func NANP(i int, p []byte) bool {
-	if i+12 <= len(p) &&
-		Digits(p, i, 3) &&
-		p[i] >= '2' &&
-		p[i+3] == '-' &&
-		Digits(p, i+4, 3) &&
-		p[i+7] == '-' &&
-		Digits(p, i+8, 4) {
-		return true
+	const length = 12 // 3 + '-' + 3 + '-' + 4
+	if i < 0 || i+length > len(p) {
+		return false
 	}
-	return false
+	const n = 3
+	const midoff = 4
+	const endoff = 8
+	return p[i+3] == '-' &&
+		p[i+7] == '-' &&
+		p[i] >= '2' &&
+		Digits(p, i, n) &&
+		Digits(p, i+midoff, n) &&
+		Digits(p, i+endoff, n+1)
 }
 
 // serial5x5 matches 12345-67890-ABCDE-FGHIJ-LMNOP..
-//
-//nolint:mnd,cyclop
-func serial5x5(i int, p []byte) bool {
-	if i+29 <= len(p) &&
-		Alpha09(p, i, 5) &&
-		p[i+5] == '-' &&
-		Alpha09(p, i+6, 5) &&
-		p[i+11] == '-' &&
-		Alpha09(p, i+12, 5) &&
-		p[i+17] == '-' &&
-		Alpha09(p, i+18, 5) &&
-		p[i+23] == '-' &&
-		Alpha09(p, i+24, 5) {
-		return true
+func serial5x5(i int, p []byte) bool { //nolint:cyclop
+	const length = 29 // (5 * 5) + 4 hyphens = 29
+	if i < 0 || i+length > len(p) {
+		return false
 	}
-	return false
+	const (
+		n    = 5
+		off1 = 6
+		off2 = 12
+		off3 = 18
+		off4 = 24
+	)
+	// check hyphen delimiters first for fast short-circuiting
+	return p[i+5] == '-' &&
+		p[i+11] == '-' &&
+		p[i+17] == '-' &&
+		p[i+23] == '-' &&
+		Alpha09(p, i, n) &&
+		Alpha09(p, i+off1, n) &&
+		Alpha09(p, i+off2, n) &&
+		Alpha09(p, i+off3, n) &&
+		Alpha09(p, i+off4, n)
 }
 
 // serial5x4 matches 1234-5678-ABCD-EFGH-IJKL..
-//
-//nolint:mnd,cyclop
-func serial5x4(i int, p []byte) bool {
-	if i+25 <= len(p) &&
-		Alpha09(p, i, 4) &&
-		p[i+4] == '-' &&
-		Alpha09(p, i+5, 4) &&
-		p[i+9] == '-' &&
-		Alpha09(p, i+10, 4) &&
-		p[i+14] == '-' &&
-		Alpha09(p, i+15, 4) &&
-		p[i+19] == '-' &&
-		Alpha09(p, i+20, 4) &&
-		(p[i+24] == ' ' || p[i+24] == '\n') { // avoid false positives with serial6x4 results
-		return true
+func serial5x4(i int, p []byte) bool { //nolint:cyclop
+	const length = 25 // (5 * 4) + 4 hyphens + 1 trailing delimiter = 25
+	if i < 0 || i+length > len(p) {
+		return false
 	}
-	return false
+	const (
+		n    = 4
+		off1 = 5
+		off2 = 10
+		off3 = 15
+		off4 = 20
+	)
+	// check delimiters and trailing boundary first for fast short-circuiting
+	return (p[i+24] == ' ' || p[i+24] == '\n') &&
+		p[i+4] == '-' &&
+		p[i+9] == '-' &&
+		p[i+14] == '-' &&
+		p[i+19] == '-' &&
+		Alpha09(p, i, n) &&
+		Alpha09(p, i+off1, n) &&
+		Alpha09(p, i+off2, n) &&
+		Alpha09(p, i+off3, n) &&
+		Alpha09(p, i+off4, n)
 }
 
 // serial6x4 matches 1234-5678-ABCD-EFGH-IJKL-MNOP..
-//
-//nolint:mnd,cyclop
-func serial6x4(i int, p []byte) bool {
-	if i+29 <= len(p) &&
-		Alpha09(p, i, 4) &&
-		p[i+4] == '-' &&
-		Alpha09(p, i+5, 4) &&
-		p[i+9] == '-' &&
-		Alpha09(p, i+10, 4) &&
-		p[i+14] == '-' &&
-		Alpha09(p, i+15, 4) &&
-		p[i+19] == '-' &&
-		Alpha09(p, i+20, 4) &&
-		p[i+24] == '-' &&
-		Alpha09(p, i+25, 4) {
-		return true
+func serial6x4(i int, p []byte) bool { //nolint:cyclop
+	const length = 29 // (6 * 4) + 5 hyphens = 29
+	if i < 0 || i+length > len(p) {
+		return false
 	}
-	return false
+	const (
+		n    = 4
+		off1 = 5
+		off2 = 10
+		off3 = 15
+		off4 = 20
+		off5 = 25
+	)
+	return p[i+4] == '-' &&
+		p[i+9] == '-' &&
+		p[i+14] == '-' &&
+		p[i+19] == '-' &&
+		p[i+24] == '-' &&
+		Alpha09(p, i, n) &&
+		Alpha09(p, i+off1, n) &&
+		Alpha09(p, i+off2, n) &&
+		Alpha09(p, i+off3, n) &&
+		Alpha09(p, i+off4, n) &&
+		Alpha09(p, i+off5, n)
 }
 
 // serial4774 matches 1234-567890A-BCDEFGH-IJKL..
-//
-//nolint:mnd
 func serial4774(i int, p []byte) bool {
-	if i+25 <= len(p) &&
-		Alpha09(p, i, 4) &&
-		p[i+4] == '-' &&
-		Alpha09(p, i+5, 7) &&
-		p[i+12] == '-' &&
-		Alpha09(p, i+13, 7) &&
-		p[i+20] == '-' &&
-		Alpha09(p, i+21, 4) {
-		return true
+	const length = 25 // 4 + '-' + 7 + '-' + 7 + '-' + 4 = 25
+	if i < 0 || i+length > len(p) {
+		return false
 	}
-	return false
+	const (
+		n4   = 4
+		n7   = 7
+		off1 = 5
+		off2 = 13
+		off3 = 21
+	)
+	return p[i+4] == '-' &&
+		p[i+12] == '-' &&
+		p[i+20] == '-' &&
+		Alpha09(p, i, n4) &&
+		Alpha09(p, i+off1, n7) &&
+		Alpha09(p, i+off2, n7) &&
+		Alpha09(p, i+off3, n4)
 }
 
 // digits4774 matches 1234 1234567 1234567 1234..
-//
-//nolint:mnd
 func digit4774(i int, p []byte) bool {
-	if i+25 <= len(p) &&
-		Digits(p, i, 4) &&
-		p[i+4] == ' ' &&
-		Digits(p, i+5, 7) &&
-		p[i+12] == ' ' &&
-		Digits(p, i+13, 7) &&
-		p[i+20] == ' ' &&
-		Digits(p, i+21, 4) {
-		return true
+	const length = 25 // 4 + ' ' + 7 + ' ' + 7 + ' ' + 4 = 25
+	if i < 0 || i+length > len(p) {
+		return false
 	}
-	return false
+	const (
+		n4   = 4
+		n7   = 7
+		off1 = 5
+		off2 = 13
+		off3 = 21
+	)
+	return p[i+4] == ' ' &&
+		p[i+12] == ' ' &&
+		p[i+20] == ' ' &&
+		Digits(p, i, n4) &&
+		Digits(p, i+off1, n7) &&
+		Digits(p, i+off2, n7) &&
+		Digits(p, i+off3, n4)
 }
 
 // ObfuscateID obfuscates the primary key of a record as a string that is used as a URL param or path..
@@ -591,34 +625,54 @@ func ObfuscateID(key int64) string {
 //
 // [obfuscateParam]: https://github.com/cfwheels/cfwheels/blob/main/wheels/global/misc.cfm
 func Obfuscate(s string) string {
-	i, err := strconv.Atoi(s)
-	if err != nil {
-		return s
-	}
-	// confirm the first digit of i isn't a zero
-	if s[0] == '0' {
-		return s
-	}
-	reverse, err := ReverseInt(i)
-	if err != nil {
-		return s
-	}
 	l := len(s)
-	a := int(math.Pow10(l) + float64(reverse))
-	b := 0
-	for i := 1; i <= l; i++ {
-		// slice and sum the individual digits
-		digit := int(s[l-i] - '0')
-		b += digit
+	if l == 0 || s[0] == '0' {
+		return s
 	}
-	// base64 conversion
-	a ^= obfuscateXOR
-	b += obfuscateSum
 
-	return fmt.Sprintf("%s%s",
-		strconv.FormatInt(int64(b), hexadecimal),
-		strconv.FormatInt(int64(a), hexadecimal),
+	var (
+		val      int
+		digitSum int
+		pow10    = 1
 	)
+
+	const base = 10
+	for i := range l {
+		c := s[i]
+		if c < '0' || c > '9' {
+			return s // return un-obfuscated if string contains non-digits
+		}
+		digit := int(c - '0')
+		val = val*base + digit
+		digitSum += digit
+		pow10 *= 10
+	}
+
+	reverse := ReverserInt(val)
+	a := (pow10 + reverse) ^ obfuscateXOR
+	b := digitSum + obfuscateSum
+	hexB := strconv.FormatInt(int64(b), hexadecimal)
+	hexA := strconv.FormatInt(int64(a), hexadecimal)
+
+	return hexB + hexA
+}
+
+// ReverserInt reverses the digits of n.
+func ReverserInt(n int) int {
+	const base = 10
+	rev := 0
+	for n > 0 {
+		rev = rev*base + (n % base)
+		n /= 10
+	}
+	return rev
+}
+
+// Deprecated: use [ReverserInt] instead.
+//
+// The error always returns nil.
+func ReverseInt(i int) (int, error) {
+	return ReverserInt(i), nil
 }
 
 // PageCount returns the maximum pages possible for the sum of records with a record limit per-page..
@@ -626,61 +680,64 @@ func PageCount(sum, limit int) int {
 	if sum <= 0 || limit <= 0 {
 		return 0
 	}
-	x := math.Ceil(float64(sum) / float64(limit))
-	return int(math.Abs(x))
+	// integer arithmetic is more performant that using the floating point math package.
+	return (sum + limit - 1) / limit
 }
 
 // Released returns a string release date as year, month, day int16 values..
 // The string is expected to be in the format "2024-07-15" or "2024-07" or "2024".
-func Released(s string) (int16, int16, int16) {
-	dates := strings.Split(s, "-") // "2024-07-15"
-	const (
-		y = 0
-		m = 1
-		d = 2
-	)
-	if len(dates) < 1 {
+func Released(s string) (year, month, day int16) { //nolint:cyclop,nonamedreturns
+	const minimum = 4
+	if len(s) < minimum {
 		return 0, 0, 0
 	}
-	var year, month, day int16
-	yv, _ := strconv.ParseInt(dates[y], 10, 16)
-	if yv > 0 && yv <= math.MaxInt16 {
-		year = int16(yv)
+
+	y := parse4Digits(s[0:4])
+	if y <= 0 {
+		return 0, 0, 0
 	}
-	if len(dates) < m+1 {
+	year = y
+
+	if len(s) < 7 || s[4] != '-' {
 		return year, 0, 0
 	}
-	if mv, _ := strconv.ParseInt(dates[m], 10, 16); mv > 0 && mv <= 12 {
-		month = int16(mv)
+
+	m := parse2Digits(s[5:7])
+	if m < 1 || m > 12 {
+		return year, 0, 0
 	}
-	if len(dates) < d+1 {
+	month = m
+
+	if len(s) < 10 || s[7] != '-' {
 		return year, month, 0
 	}
-	if dv, _ := strconv.ParseInt(dates[d], 10, 16); dv > 0 && dv <= 31 {
-		day = int16(dv)
+
+	d := parse2Digits(s[8:10])
+	if d < 1 || d > 31 {
+		return year, month, 0
 	}
+	day = d
+
 	return year, month, day
 }
 
-// ReverseInt reverses an integer..
-//
-// credit, [Wade73]
-//
-// [Wade73]: http://stackoverflow.com/questions/35972561/reverse-int-golang
-func ReverseInt(i int) (int, error) {
-	itoa := strconv.Itoa(i)
-	var str strings.Builder
-	for x := len(itoa); x > 0; x-- {
-		str.WriteByte(itoa[x-1])
+// a fast four-digit ASCII byte parser.
+func parse4Digits(b string) int16 {
+	if b[0] < '0' || b[0] > '9' ||
+		b[1] < '0' || b[1] > '9' ||
+		b[2] < '0' || b[2] > '9' ||
+		b[3] < '0' || b[3] > '9' {
+		return -1
 	}
+	return int16(b[0]-'0')*1000 + int16(b[1]-'0')*100 + int16(b[2]-'0')*10 + int16(b[3]-'0')
+}
 
-	reverse, err := strconv.Atoi(str.String())
-	if err != nil {
-		const format = "reverse integer %d: %w"
-		return 0, fmt.Errorf(format, i, err)
+// a fast two-digit ASCII byte parser.
+func parse2Digits(b string) int16 {
+	if b[0] < '0' || b[0] > '9' || b[1] < '0' || b[1] > '9' {
+		return -1
 	}
-
-	return reverse, nil
+	return int16(b[0]-'0')*10 + int16(b[1]-'0')
 }
 
 // SearchTerm returns a list of search terms from the input string..
@@ -689,13 +746,18 @@ func SearchTerm(input string) []string {
 	if input == "" {
 		return []string{}
 	}
+
 	const sep = ","
 	terms := strings.Split(input, sep)
-	// join the two slices
 	s := make([]string, 0, len(terms))
-	for term := range slices.Values(terms) {
-		s = append(s, strings.TrimSpace(term))
+
+	for _, term := range terms {
+		trimmed := strings.TrimSpace(term)
+		if trimmed != "" {
+			s = append(s, trimmed)
+		}
 	}
+
 	return s
 }
 
@@ -704,54 +766,105 @@ func ShortMonth(month int) string {
 	if month < 1 || month > 12 {
 		return ""
 	}
-	const abbreviated = 3
-	s := fmt.Sprint(time.Month(month))
-	if len(s) >= abbreviated {
-		return s[0:abbreviated]
-	}
-	return ""
+	const length = 3
+	return time.Month(month).String()[:length]
 }
 
 // Slug returns a URL friendly string of the named group..
 func Slug(name string) string {
-	s := name
-	// remove diacritics
+	if name == "" {
+		return ""
+	}
+
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
-	s, _, _ = transform.String(t, s)
-	// hyphen to underscore
-	s = slugRegex1.ReplaceAllString(s, "_")
-	// multiple groups get separated with asterisk
-	s = slugRegex2.ReplaceAllString(s, "*")
-	// any & characters need replacement due to HTML escaping
-	s = slugRegex3.ReplaceAllString(s, " ampersand ")
-	// numbers receive a leading hyphen
-	s = slugRegex4.ReplaceAllString(s, "-$1")
-	// delete all other characters
-	s = slugRegex5.ReplaceAllString(s, "")
-	// trim whitespace and replace any space separators with hyphens
-	s = strings.TrimSpace(strings.ToLower(s))
-	s = slugRegex6.ReplaceAllString(s, "-")
-	return s
+	s, _, err := transform.String(t, name)
+	if err != nil {
+		s = name // fallback on transform error
+	}
+	// strings replace all is more performant than regex
+	s = strings.ReplaceAll(s, "-", "_")             // hyphen to underscores
+	s = strings.ReplaceAll(s, ", ", "*")            // multiple groups get separated with asterisks
+	s = strings.ReplaceAll(s, " & ", " ampersand ") // remove & characters from URI usage
+
+	var b strings.Builder
+	b.Grow(len(s))
+
+	runesList := []rune(s)
+	n := len(runesList)
+
+	for i := range n {
+		r := runesList[i]
+		// numbers receive leading hyphens
+		if r == ' ' && i+1 < n && unicode.IsDigit(runesList[i+1]) {
+			b.WriteRune('-')
+			continue
+		}
+		// remove all unexpected characters
+		if isPermitted(r) {
+			b.WriteRune(r)
+		}
+	}
+	res := strings.TrimSpace(strings.ToLower(b.String()))
+	return strings.ReplaceAll(res, " ", "-")
 }
 
-// SplitAsSpaces splits a string at each capital letter..
-func SplitAsSpaces(s string) string {
-	var result strings.Builder
-	for i, r := range s {
-		if unicode.IsUpper(r) && i != 0 {
-			result.WriteRune(' ')
-		}
-		result.WriteRune(r)
+func isPermitted(r rune) bool {
+	if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+		return true
 	}
-	x := result.String()
-	x = strings.ReplaceAll(x, "Dir", "Directory")
-	x = strings.ReplaceAll(x, "H T T P", "HTTP") //nolint:dupword
-	x = strings.ReplaceAll(x, "T L S", "TLS")
-	x = strings.ReplaceAll(x, "P S ", "PS ")
-	x = strings.ReplaceAll(x, "I D", "ID")
-	x = strings.ReplaceAll(x, "  ", " ")
-	return x
+	switch r {
+	case ' ', '-', '+', '.', '_', '*':
+		return true
+	}
+	return false
 }
+
+// SplitAsSpaces splits a string at each capital letter.
+func SplitAsSpaces(s string) string { //nolint:cyclop
+	if s == "" {
+		return ""
+	}
+
+	var result strings.Builder
+	const heuristic = 8
+	result.Grow(len(s) + heuristic)
+
+	runes := []rune(s)
+	n := len(runes)
+
+	for i := 0; i < n; {
+		r := runes[i]
+
+		if i > 0 && unicode.IsUpper(r) {
+			prev := runes[i-1]
+			// case 1: from lowercase/digit to uppercase ("getHTTP" -> "get HTTP")
+			// case 2: from acronym to regular word ("HTTPResponse" -> "HTTP Response")
+			if !unicode.IsUpper(prev) || (i+1 < n && unicode.IsLower(runes[i+1])) {
+				if prev != ' ' {
+					result.WriteRune(' ')
+				}
+			}
+		}
+
+		if r == 'D' && i+2 < n && runes[i+1] == 'i' && runes[i+2] == 'r' {
+			isStandalone := (i+3 == n) || unicode.IsUpper(runes[i+3]) || !unicode.IsLetter(runes[i+3])
+			if isStandalone {
+				result.WriteString("Directory")
+				i += 3 // Advance past 'D', 'i', and 'r'
+				continue
+			}
+		}
+
+		result.WriteRune(r)
+		i++
+	}
+
+	return result.String()
+}
+
+var englishCaser = sync.OnceValue(func() cases.Caser {
+	return cases.Title(language.English, cases.NoLower)
+})
 
 // Titleize returns a string with the first letter of each word capitalized..
 // If a word is an acronym, it is capitalized as a word.
@@ -759,41 +872,45 @@ func Titleize(s string) string {
 	if s == "" {
 		return ""
 	}
-	const sep = " "
-	caser := cases.Title(language.English)
-	words := strings.Split(s, sep)
-	if len(words) == 1 {
-		return caser.String(s)
-	}
-	for i, word := range words {
-		if word == "" {
-			continue
-		}
-		words[i] = caser.String(word)
-	}
-	return strings.Join(words, sep)
+	return englishCaser().String(s)
 }
 
-// TruncFilename reduces a filename to the length of w characters..
+// TruncFilename reduces a filename to the length of w characters.
 // The file extension is always preserved with the truncation.
 func TruncFilename(w int, name string) string {
-	const trunc = "."
-	if w == 0 {
+	if w <= 0 {
 		return ""
 	}
-	l := len(name)
-	if w >= l {
+
+	count := utf8.RuneCountInString(name)
+	if w >= count {
 		return name
 	}
+
+	// identify hidden files (".gitignore", ".env") that have no main stem
+	// treat the dot-prefix name as a stem with no extension
 	ext := filepath.Ext(name)
-	if w <= len(ext) {
-		return ext
+	if strings.HasPrefix(name, ".") && ext == name {
+		ext = ""
 	}
-	if w-len(ext)-len(trunc) <= 0 {
-		return ext
+
+	const trunc = "."
+	truncLen := utf8.RuneCountInString(trunc)
+	extLen := utf8.RuneCountInString(ext)
+	stemLen := w - extLen - truncLen
+	if stemLen <= 0 {
+		if ext != "" {
+			return ext
+		}
+		// if purely a hidden file stem with no ext, truncate it directly
+		runes := []rune(name)
+		return string(runes[:w])
 	}
-	s := name[0 : w-len(ext)-len(trunc)]
-	return fmt.Sprintf("%s%s%s", s, trunc, ext)
+
+	stem := name[:len(name)-len(ext)]
+	runes := []rune(stem)
+
+	return string(runes[:stemLen]) + trunc + ext
 }
 
 // TrimRoundBracket removes the trailing round brackets and any whitespace.
@@ -802,10 +919,13 @@ func TrimRoundBracket(s string) string {
 	if s == "" {
 		return ""
 	}
-	l, r := strings.Index(s, "("), strings.Index(s, ")")
-	if l < r {
-		return strings.TrimSpace(s[:l])
+
+	// find the start of the bracket section.
+	before, _, ok := strings.Cut(s, "(")
+	if ok {
+		return strings.TrimSpace(before)
 	}
+
 	return s
 }
 
@@ -816,32 +936,36 @@ func TrimRoundBraket(s string) string {
 	return TrimRoundBracket(s)
 }
 
-// TrimPunct removes any trailing, common punctuation characters from the string..
+// TrimPunct removes any trailing, common punctuation characters from the string.
 func TrimPunct(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return ""
 	}
-	rs := []rune(s)
-	for i, r := range slices.Backward(rs) {
-		// https://www.compart.com/en/unicode/category/Po
-		if !unicode.Is(unicode.Po, r) {
-			punctless := string(rs[0 : i+1])
-			return strings.TrimSpace(punctless)
-		}
-	}
-	return s
+
+	// Strip trailing 'Po' category characters
+	s = strings.TrimRightFunc(s, func(r rune) bool {
+		return unicode.Is(unicode.Po, r)
+	})
+
+	// Trim any whitespace that was sitting behind the removed punctuation
+	return strings.TrimSpace(s)
 }
 
-// Years returns a string of the years if they are different..
-// If they are the same, it returns a singular year.
+// Years returns a formatted string representing a single year, consecutive years,
+// a range of years, or if they are the same, it returns a singular year.
 func Years(a, b int16) string {
-	const format = "the year"
 	if a == b {
-		return fmt.Sprintf(format+" %d", a)
+		return "the year " + strconv.Itoa(int(a))
 	}
+
+	if a > b {
+		a, b = b, a
+	}
+
 	if b-a == 1 {
-		return fmt.Sprintf(format+"s %d and %d", a, b)
+		return "the years " + strconv.Itoa(int(a)) + " and " + strconv.Itoa(int(b))
 	}
-	return fmt.Sprintf(format+"s %d - %d", a, b)
+
+	return "the years " + strconv.Itoa(int(a)) + " - " + strconv.Itoa(int(b))
 }

@@ -113,8 +113,8 @@ func ExampleReleased() {
 	// 2024 7 15
 }
 
-func ExampleReverseInt() {
-	i, _ := helper.ReverseInt(123456)
+func ExampleReverserInt() {
+	i := helper.ReverserInt(123456)
 	fmt.Println(i)
 	// Output:
 	// 654321
@@ -168,8 +168,8 @@ func ExampleTrimPunct() {
 	// OMG
 }
 
-func ExampleTrimRoundBraket() {
-	fmt.Println(helper.TrimRoundBraket("Hello (world)"))
+func ExampleTrimRoundBracket() {
+	fmt.Println(helper.TrimRoundBracket("Hello (world)"))
 	// Output:
 	// Hello
 }
@@ -343,6 +343,8 @@ func TestSplitAsSpace(t *testing.T) {
 	be.Equal(t, "Hello world!", s)
 	s = helper.SplitAsSpaces("HTTP Dir")
 	be.Equal(t, "HTTP Directory", s)
+	s = helper.SplitAsSpaces("DirectPath")
+	be.Equal(t, "Direct Path", s)
 }
 
 func TestTruncFilename(t *testing.T) {
@@ -360,7 +362,7 @@ func TestTruncFilename(t *testing.T) {
 		{"empty", args{-1, ""}, ""},
 		{"zero", args{0, fn}, ""},
 		{"ext", args{5, fn}, ".file"},
-		{"too short", args{4, fn}, ".file"},
+		{"too short", args{3, fn}, ".file"},
 		{"short", args{14, fn}, "one_two-..file"},
 		{"too short 2", args{6, "file"}, "file"},
 	}
@@ -374,7 +376,7 @@ func TestTruncFilename(t *testing.T) {
 	}
 }
 
-func TestTrimRoundBraket(t *testing.T) {
+func TestTrimRoundBracket(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name string
@@ -383,13 +385,15 @@ func TestTrimRoundBraket(t *testing.T) {
 	}{
 		{"empty", "", ""},
 		{"hi", "Hello world", "Hello world"},
+		{"oops", "Hello (world", "Hello"},
+		{"count", "Hello 1) world", "Hello 1) world"},
 		{"okay", "Hello world (Hi!)", "Hello world"},
 		{"search", "Razor 1911 (RZR, Razor)", "Razor 1911"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			be.Equal(t, tt.want, helper.TrimRoundBraket(tt.s))
+			be.Equal(t, helper.TrimRoundBracket(tt.s), tt.want)
 		})
 	}
 }
@@ -516,7 +520,7 @@ func TestSearchTerm(t *testing.T) {
 		want  []string
 	}{
 		{"empty", "", []string{}},
-		{"spaces", "   ", []string{""}},
+		{"spaces", "   ", []string{}},
 		{"one", "one", []string{"one"}},
 		{"two", "one two", []string{"one two"}},
 		{"three", "one two three", []string{"one two three"}},
@@ -539,6 +543,8 @@ func TestTitleize(t *testing.T) {
 	be.Equal(t, "Hello", s)
 	s = helper.Titleize("hello world, how are you?")
 	be.Equal(t, "Hello World, How Are You?", s)
+	s = helper.Titleize("hello i am from the UK and we use GBP!")
+	be.Equal(t, s, "Hello I Am From The UK And We Use GBP!")
 }
 
 func TestMask(t *testing.T) {
@@ -735,8 +741,8 @@ func TestReleased(t *testing.T) {
 		{"full date", "2024-07-15", 2024, 7, 15},
 		{"year-month", "2024-07", 2024, 7, 0},
 		{"year only", "2024", 2024, 0, 0},
-		{"min year", "1-01-01", 1, 1, 1},
-		{"max year", "32767-12-31", 32767, 12, 31},
+		{"min year", "0001-01-01", 1, 1, 1},
+		{"max year", "9999-12-31", 9999, 12, 31},
 		{"invalid date", "2024-13-32", 2024, 0, 0}, // Invalid month/day
 		{"partial invalid", "2024-13", 2024, 0, 0}, // Invalid month
 		{"empty", "", 0, 0, 0},
