@@ -222,15 +222,15 @@ func TestCfUUID(t *testing.T) {
 func TestByteCount(t *testing.T) {
 	t.Parallel()
 	s := helper.ByteCount(0)
-	be.Equal(t, "0B", s)
+	be.Equal(t, s, "0B")
 	s = helper.ByteCount(1023)
-	be.Equal(t, "1023B", s)
+	be.Equal(t, s, "1023B")
 	s = helper.ByteCount(1024)
-	be.Equal(t, "1k", s)
+	be.Equal(t, s, "1k")
 	s = helper.ByteCount(-1026)
-	be.Equal(t, "-1026B", s)
+	be.Equal(t, s, "-1026B")
 	s = helper.ByteCount(1024*1024*1024 - 1)
-	be.Equal(t, "1024M", s)
+	be.Equal(t, s, "1024M")
 }
 
 func TestByteCountFloat(t *testing.T) {
