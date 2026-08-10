@@ -862,7 +862,7 @@ func SplitAsSpaces(s string) string { //nolint:cyclop
 	return result.String()
 }
 
-var englishCaser = sync.OnceValue(func() cases.Caser {
+var englishCaser = sync.OnceValue(func() cases.Caser { //nolint:gochecknoglobals
 	return cases.Title(language.English, cases.NoLower)
 })
 

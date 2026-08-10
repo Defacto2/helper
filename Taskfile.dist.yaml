@@ -56,6 +56,14 @@ tasks:
     desc: 'Run the test suite.'
     cmds:
       - go test -count 1 ./...
+  testb:
+    desc: 'Run the benchmarks.'
+    cmds:
+      - go test -bench=. -benchmem -count=2
+  testc:
+    desc: 'Run the test suite with coverage output to the browser.'
+    cmds:
+      - go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
   testr:
     desc: 'Run the test suite with the slower race detection.'
     cmds:

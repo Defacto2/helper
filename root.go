@@ -25,7 +25,9 @@ func DuplicaterOW(r *os.Root, name, newname string) (int64, error) {
 	return duplicater(r, name, newname, createTruncate)
 }
 
-func duplicater(r *os.Root, name, newname string, flag int) (written int64, err error) {
+func duplicater(r *os.Root, name, newname string, flag int) ( //nolint:nonamedreturns
+	written int64, err error,
+) {
 	const format = "duplicater %s %w"
 	src, err := r.Open(name)
 	if err != nil {
@@ -134,7 +136,9 @@ func TouchR(r *os.Root, name string) error {
 
 // TouchWR creates a new named file with the given data..
 // If the file already exists, an error is returned.
-func TouchWR(r *os.Root, name string, data ...byte) (written int, err error) {
+func TouchWR(r *os.Root, name string, data ...byte) ( //nolint:nonamedreturns
+	written int, err error,
+) {
 	const format = "touch wr %s file %w"
 	const flag = os.O_CREATE | os.O_EXCL | os.O_WRONLY
 	file, err := r.OpenFile(name, flag, WriteWriteRead)
