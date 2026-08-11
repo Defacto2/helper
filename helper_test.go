@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,9 @@ const (
 	testdataBMP    = 750_054         // the byte count of the textdata file helper/textdata/TEST.BMP
 	testdataBMP384 = `cfa5f5f91417786fd4d63d79e82e613e355621dc8759` +
 		`b616f53a1be738880d2ea6da25ae1fef13de3174903d1818f3a2` // the result of sha384hmac -u TEST.BMP
+	testUNID  = "00000000-0000-0000-0000-000000000000" // common universal unique identifier example
+	testCUID  = "00000000-0000-0000-0000000000000000"  // coldfusion uuid example
+	testChars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
 // testdata returns the absolute path to the helper/testdata directory.
@@ -77,9 +81,20 @@ func createCombo(tb testing.TB) (size int, dir, src, dst string) { //nolint:nona
 // cleanup removes the path and its content and logs any errors.
 func cleanup(tb testing.TB, path string) {
 	tb.Helper()
+
 	if err := os.RemoveAll(path); err != nil {
 		tb.Logf("could not remove the path %s: %v", path, err)
 	}
+}
+
+func random(tb testing.TB, n int) []byte {
+	tb.Helper()
+
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = testChars[rand.N(len(testChars))] //nolint:gosec
+	}
+	return b
 }
 
 func TestDetermineEncoding_Unicode(t *testing.T) {

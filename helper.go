@@ -63,21 +63,6 @@ var (
 	ErrRead       = errors.New("could not read files")
 )
 
-type contextKey string
-
-// LoggerKey is the key used to store the logger in the context.
-//
-// Deprecated: As of release v1.5.
-const LoggerKey contextKey = "logger"
-
-// Logger returns the logger from the context.
-// If the logger is not found, it panics.
-//
-// Deprecated: As of release v1.5, this function returns nil.
-func Logger(_ context.Context) any {
-	return nil
-}
-
 // Add1 returns the value of a + 1.
 // The type of a must be an integer type or the result is 0.
 func Add1(a any) int64 {
@@ -555,4 +540,12 @@ func Year(i int) bool {
 		return true
 	}
 	return false
+}
+
+// Deprecated: As of release v1.5.
+const LoggerKey string = "logger"
+
+// Deprecated: As of release v1.5, this function returns nil.
+func Logger(_ context.Context) any {
+	return nil
 }

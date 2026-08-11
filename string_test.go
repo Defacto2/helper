@@ -3,7 +3,6 @@ package helper_test
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
 	"strings"
 	"testing"
 	"time"
@@ -11,11 +10,6 @@ import (
 	"github.com/Defacto2/helper"
 	"github.com/google/uuid"
 	"github.com/nalgeon/be"
-)
-
-const (
-	unid = "00000000-0000-0000-0000-000000000000" // common universal unique identifier example
-	cfid = "00000000-0000-0000-0000000000000000"  // coldfusion uuid example
 )
 
 func ExampleSplitAsSpaces() {
@@ -207,82 +201,87 @@ func ExampleDetermine() {
 
 func TestCfUUID(t *testing.T) {
 	t.Parallel()
-	err := uuid.Validate(unid)
+
+	be.Err(t, uuid.Validate(testUNID), nil)
+
+	s, err := helper.CfUUID(testUNID)
 	be.Err(t, err, nil)
-	newid, err := helper.CfUUID(unid)
+	be.Err(t, uuid.Validate(s), nil)
+
+	s, err = helper.CfUUID(testCUID)
 	be.Err(t, err, nil)
-	err = uuid.Validate(newid)
-	be.Err(t, err, nil)
-	newid, err = helper.CfUUID(cfid)
-	be.Err(t, err, nil)
-	err = uuid.Validate(newid)
-	be.Err(t, err, nil)
+	be.Err(t, uuid.Validate(s), nil)
 }
 
 func TestByteCount(t *testing.T) {
 	t.Parallel()
-	got := helper.ByteCount(0)
-	be.Equal(t, got, "0B")
-	got = helper.ByteCount(1023)
-	be.Equal(t, got, "1023B")
-	got = helper.ByteCount(1024)
-	be.Equal(t, got, "1k")
-	got = helper.ByteCount(-1026)
-	be.Equal(t, got, "-1026B")
-	got = helper.ByteCount(1024*1024*1024 - 1)
-	be.Equal(t, got, "1024M")
+
+	const mb = 1024*1024*1024 - 1
+	be.Equal(t, helper.ByteCount(0), "0B")
+	be.Equal(t, helper.ByteCount(1023), "1023B")
+	be.Equal(t, helper.ByteCount(1024), "1k")
+	be.Equal(t, helper.ByteCount(-1026), "-1026B")
+	be.Equal(t, helper.ByteCount(mb), "1024M")
+	be.Equal(t, helper.ByteCount(mb+2), "1G")
 }
 
 func TestByteCountFloat(t *testing.T) {
 	t.Parallel()
-	got := helper.ByteCountFloat(0)
-	be.Equal(t, got, "0 bytes")
-	got = helper.ByteCountFloat(1023)
-	be.Equal(t, got, "1 kB")
-	got = helper.ByteCountFloat(1024)
-	be.Equal(t, got, "1 kB")
-	got = helper.ByteCountFloat(-1026)
-	be.Equal(t, got, "-1026 bytes")
-	got = helper.ByteCountFloat(1024*1024*1024 - 1)
-	be.Equal(t, got, "1.1 GB")
-	got = helper.ByteCountFloat(1024*1024*1024*1024 - 1)
-	be.Equal(t, got, "1.1 TB")
-	got = helper.ByteCountFloat(1024*1024*1024*1024*1024 - 1)
-	be.Equal(t, got, "1.1 PB")
+
+	be.Equal(t, helper.ByteCountFloat(0), "0 bytes")
+	be.Equal(t, helper.ByteCountFloat(1023), "1 kB")
+	be.Equal(t, helper.ByteCountFloat(1024), "1 kB")
+	be.Equal(t, helper.ByteCountFloat(-1026), "-1026 bytes")
+
+	const (
+		mb = 1024*1024*1024 - 1
+		gb = mb * 1024
+		tb = gb * 1024
+	)
+	be.Equal(t, helper.ByteCountFloat(mb), "1.1 GB")
+	be.Equal(t, helper.ByteCountFloat(gb), "1.1 TB")
+	be.Equal(t, helper.ByteCountFloat(tb), "1.1 PB")
 }
 
 func TestCapitalize(t *testing.T) {
 	t.Parallel()
-	got := helper.Capitalize("")
-	be.Equal(t, got, "")
-	got = helper.Capitalize("hello")
-	be.Equal(t, got, "Hello")
-	got = helper.Capitalize("hello world")
-	be.Equal(t, got, "Hello world")
-	got = helper.Capitalize(strings.ToUpper("hello world!"))
-	be.Equal(t, got, "Hello WORLD!")
+
+	be.Equal(t, helper.Capitalize(""), "")
+	be.Equal(t, helper.Capitalize("hello"), "Hello")
+	be.Equal(t, helper.Capitalize("the uk"), "The uk")
+	be.Equal(t, helper.Capitalize("the UK"), "The UK")
+	be.Equal(t, helper.Capitalize("hello world"), "Hello world")
+	be.Equal(t, helper.Capitalize("HELLO WORLD!"), "Hello WORLD!")
 }
 
 func TestDeleteDupe(t *testing.T) {
 	t.Parallel()
+
 	got := helper.DeleteDupe(nil...)
 	be.Equal(t, got, []string{})
+
 	got = helper.DeleteDupe([]string{"a"}...)
 	be.Equal(t, got, []string{"a"})
+
 	got = helper.DeleteDupe([]string{"a", "b", "abcde"}...)
 	be.Equal(t, got, []string{"a", "abcde", "b"}) // sorted
+
 	got = helper.DeleteDupe([]string{"a", "b", "a"}...)
 	be.Equal(t, got, []string{"a", "b"})
 }
 
 func TestFmtSlice(t *testing.T) {
 	t.Parallel()
+
 	got := helper.FmtSlice("")
 	be.Equal(t, got, "")
+
 	got = helper.FmtSlice("a")
 	be.Equal(t, got, "A")
+
 	got = helper.FmtSlice("a,b, abcde")
 	be.Equal(t, got, "A, B, Abcde")
+
 	got = helper.FmtSlice("a , b , abcde")
 	be.Equal(t, got, "A, B, Abcde")
 }
@@ -303,7 +302,7 @@ func TestChrLast(t *testing.T) {
 		t.Run(tt.s, func(t *testing.T) {
 			t.Parallel()
 			if got := helper.ChrLast(tt.s); got != tt.want {
-				t.Errorf("ChrLast() = %v, want %v", got, tt.want)
+				t.Errorf("ChrLast(%s) = %v, want %v", tt.s, got, tt.want)
 			}
 		})
 	}
@@ -311,40 +310,34 @@ func TestChrLast(t *testing.T) {
 
 func TestMaxLineLength(t *testing.T) {
 	t.Parallel()
-	got := helper.MaxLineLength("")
-	be.Equal(t, got, 0)
-	got = helper.MaxLineLength("a")
-	be.Equal(t, got, 1)
-	got = helper.MaxLineLength("a\nb")
-	be.Equal(t, got, 1)
-	got = helper.MaxLineLength("a\nabcdefghijklmnopqrstuvwxyz\nabcde.")
-	be.Equal(t, got, 26)
+
+	be.Equal(t, helper.MaxLineLength(""), 0)
+	be.Equal(t, helper.MaxLineLength("a"), 1)
+	be.Equal(t, helper.MaxLineLength("a\nb"), 1)
+	const s = "a\n" +
+		"abcdefghijklmnopqrstuvwxyz\n" +
+		"abcde.\n"
+	be.Equal(t, helper.MaxLineLength(s), 26)
 }
 
 func TestShortMonth(t *testing.T) {
 	t.Parallel()
-	got := helper.ShortMonth(0)
-	be.Equal(t, got, "")
-	got = helper.ShortMonth(1)
-	be.Equal(t, got, "Jan")
-	got = helper.ShortMonth(12)
-	be.Equal(t, got, "Dec")
-	got = helper.ShortMonth(13)
-	be.Equal(t, got, "")
+
+	be.Equal(t, helper.ShortMonth(-1), "")
+	be.Equal(t, helper.ShortMonth(0), "")
+	be.Equal(t, helper.ShortMonth(1), "Jan")
+	be.Equal(t, helper.ShortMonth(12), "Dec")
+	be.Equal(t, helper.ShortMonth(13), "")
 }
 
 func TestSplitAsSpace(t *testing.T) {
 	t.Parallel()
-	got := helper.SplitAsSpaces("")
-	be.Equal(t, got, "")
-	got = helper.SplitAsSpaces("a")
-	be.Equal(t, got, "a")
-	got = helper.SplitAsSpaces("Hello world!")
-	be.Equal(t, got, "Hello world!")
-	got = helper.SplitAsSpaces("HTTP Dir")
-	be.Equal(t, got, "HTTP Directory")
-	got = helper.SplitAsSpaces("DirectPath")
-	be.Equal(t, got, "Direct Path")
+
+	be.Equal(t, helper.SplitAsSpaces(""), "")
+	be.Equal(t, helper.SplitAsSpaces("a"), "a")
+	be.Equal(t, helper.SplitAsSpaces("Hello world!"), "Hello world!")
+	be.Equal(t, helper.SplitAsSpaces("HTTP Dir"), "HTTP Directory")
+	be.Equal(t, helper.SplitAsSpaces("DirectPath"), "Direct Path")
 }
 
 func TestTruncFilename(t *testing.T) {
@@ -370,7 +363,7 @@ func TestTruncFilename(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if got := helper.TruncFilename(tt.args.w, tt.args.name); got != tt.want {
-				t.Errorf("TruncFilename() = %v, want %v", got, tt.want)
+				t.Errorf("TruncFilename() %s = %v, want %v", tt.name, got, tt.want)
 			}
 		})
 	}
@@ -417,7 +410,7 @@ func TestTrimPunct(t *testing.T) {
 		t.Run(tt.s, func(t *testing.T) {
 			t.Parallel()
 			if got := helper.TrimPunct(tt.s); got != tt.want {
-				t.Errorf("TrimPunct() = %v, want %v", got, tt.want)
+				t.Errorf("TrimPunct(%s) = %v, want %v", tt.s, got, tt.want)
 			}
 		})
 	}
@@ -425,27 +418,32 @@ func TestTrimPunct(t *testing.T) {
 
 func TestYears(t *testing.T) {
 	t.Parallel()
-	got := helper.Years(0, 0)
-	be.Equal(t, got, "the year 0")
-	got = helper.Years(1990, 1991)
-	be.Equal(t, got, "the years 1990 and 1991")
-	got = helper.Years(1990, 2000)
-	be.Equal(t, got, "the years 1990 - 2000")
-}
 
-// https://defacto2.net/f/ab27b2e
+	be.Equal(t, helper.Years(0, 0), "the year 0")
+	be.Equal(t, helper.Years(1990, 1990), "the year 1990")
+	be.Equal(t, helper.Years(1990, 1991), "the years 1990 and 1991")
+	be.Equal(t, helper.Years(1990, 2000), "the years 1990 - 2000")
+	be.Equal(t, helper.Years(2000, 1990), "the years 1990 - 2000")
+	be.Equal(t, helper.Years(-100, 0), "the years -100 - 0")
+}
 
 func TestDeobfuscateURL(t *testing.T) {
 	t.Parallel()
+
+	const d = `https://defacto2.net/d/ab27b2e`
+	const f = `https://defacto2.net/f/ab27b2e`
 	tests := []struct {
 		name   string
 		rawURL string
 		want   int
 	}{
-		{"record", "https://defacto2.net/f/ab27b2e", 13526},
-		{"download", "https://defacto2.net/d/ab27b2e", 13526},
-		{"query", "https://defacto2.net/f/ab27b2e?blahblahblah", 13526},
-		{"typo", "https://defacto2.net/f/ab27b2", 0},
+		{"record", f, 13526},
+		{"record", f + "/", 13526},
+		{"download", d, 13526},
+		{"query", f + "?blahblahblah", 13526},
+		{"query extra", f + "?blahblahblah%more", 13526},
+		{"invalid index", f + "/index.htm", 0},
+		{"trim 1 byte (typo)", d[:len(d)-1], 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -509,6 +507,7 @@ func TestPageCount(t *testing.T) {
 
 func TestObfuscates(t *testing.T) {
 	t.Parallel()
+
 	keys := []int{1, 1000, 1236346, -123, 0}
 	for _, key := range keys {
 		id := helper.ObfuscateID(int64(key))
@@ -543,6 +542,7 @@ func TestSearchTerm(t *testing.T) {
 
 func TestTitleize(t *testing.T) {
 	t.Parallel()
+
 	got := helper.Titleize("")
 	be.Equal(t, got, "")
 	got = helper.Titleize("hello")
@@ -553,29 +553,31 @@ func TestTitleize(t *testing.T) {
 	be.Equal(t, got, "Hello I Am From The UK And We Use GBP!")
 }
 
+func TestMask_errors(t *testing.T) {
+	t.Parallel()
+
+	p := []byte("this string is too short")
+	be.Equal(t, helper.Mask(p...), p)
+
+	p = random(t, 100_000)
+	be.Equal(t, helper.Mask(p...), p)
+}
+
 func TestMask(t *testing.T) {
+	t.Parallel()
+
+	p := []byte("this string is too short")
 	m1 := []byte("1234-5678-ABCD-EFGH-IJKL-MNOP")
 	m2 := []byte("12345-67890-ABCDE-FGHIJ-LMNOP")
 	m3 := []byte("12345-67890-abcde-fghij-lmnop")
 	m4 := []byte("1234-567890A-BCDEFGH-IJKL")
 	d1 := []byte("1234 1240000 1234000 0000")
-	x1 := []byte("1234-5678-ABCD-EFGH-IJKLZMNOP")
-	x2 := []byte("  A -5678-ABCD-EFGH-IJKL-MNO")
-	x3 := []byte("1234 I240000 1234000 0000")
 	want29 := []byte(strings.Repeat("0", helper.Chrs29))
 	want25 := []byte(strings.Repeat("0", helper.Chrs25))
-	t.Parallel()
-	// too short
-	p := []byte("this string is too short")
-	got := helper.Mask(p...)
-	be.Equal(t, got, p)
-	// no key in string
-	p = random(1000)
-	got = helper.Mask(p...)
-	be.Equal(t, got, p)
+
 	// 6 multiples of 4 chars match
 	s := [][]byte{p, m1, p}
-	got = bytes.Join(s, []byte(" "))
+	got := bytes.Join(s, []byte(" "))
 	be.True(t, bytes.Contains(got, m1))
 	got = helper.Mask(got...)
 	be.True(t, !bytes.Contains(got, m1))
@@ -608,90 +610,99 @@ func TestMask(t *testing.T) {
 	got = helper.Mask(got...)
 	be.True(t, !bytes.Contains(got, d1))
 	be.True(t, bytes.Contains(got, want25))
+}
+
+func TestMask_nonmatches(t *testing.T) {
+	t.Parallel()
+
+	p := []byte("this string is too short")
+	x1 := []byte("1234-5678-ABCD-EFGH-IJKLZMNOP")
+	x2 := []byte("  A -5678-ABCD-EFGH-IJKL-MNO")
+	x3 := []byte("1234 I240000 1234000 0000")
 
 	// non-matches
-	s = [][]byte{p, x1, p}
-	got = bytes.Join(s, []byte(" "))
+	s := [][]byte{p, x1, p}
+	got := bytes.Join(s, []byte(" "))
 	be.True(t, bytes.Contains(got, x1))
+
 	got = helper.Mask(got...)
-	be.True(t, !bytes.Contains(got, x1)) // after an unpdate, this gets masked by Phone
+	be.True(t, !bytes.Contains(got, x1)) // gets masked by Phone
+
 	s = [][]byte{p, x2, p}
 	got = bytes.Join(s, []byte(" "))
+
 	be.True(t, bytes.Contains(got, x2))
 	got = helper.Mask(got...)
+
 	be.True(t, bytes.Contains(got, x2))
 	s = [][]byte{p, x3, p}
 	got = bytes.Join(s, []byte(" "))
 	be.True(t, bytes.Contains(got, x3))
+
 	got = helper.Mask(got...)
 	be.True(t, bytes.Contains(got, x3))
 }
 
-const chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-func random(n int) []byte {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))] //nolint:gosec
-	}
-	return b
-}
-
 func TestAlpha09(t *testing.T) {
 	t.Parallel()
-	bad := []string{"123-1234", "000_0000", "$1000.00", "Hello world!"}
-	for _, number := range bad {
+
+	bads := []string{"123-1234", "000_0000", "$1000.00", "Hello world!"}
+	for _, number := range bads {
 		l := len(number)
 		ok := helper.Digits([]byte(number), 0, l)
 		be.True(t, !ok)
 	}
+
 	good := []string{"1231234", "Abcdefghi", "0A1b2C3d", "09x876"}
 	for _, s := range good {
 		l := len(s)
 		ok := helper.Alpha09([]byte(s), 0, l)
 		be.True(t, ok)
 	}
+
 	idx := []byte("Abc123.")
 	ok := helper.Alpha09(idx, 0, 6) // Abc123
 	be.True(t, ok)
+
 	ok = helper.Alpha09(idx, 6, 2) // 3.
 	be.True(t, !ok)
 }
 
 func TestDigits(t *testing.T) {
 	t.Parallel()
-	bad := []string{"123-1234", "000-0000", "000 0000", "000A000"}
-	for _, number := range bad {
+
+	bads := []string{"123-1234", "000-0000", "000 0000", "000A000"}
+	for _, number := range bads {
 		l := len(number)
 		ok := helper.Digits([]byte(number), 0, l)
 		be.True(t, !ok)
 	}
+
 	good := []string{"1231234", "0000000", "0000000", "09876"}
 	for _, number := range good {
 		l := len(number)
 		ok := helper.Digits([]byte(number), 0, l)
 		be.True(t, ok)
 	}
+
 	idx := []byte("ABC123")
-	got := helper.Digits(idx, 3, 3) // 123
-	be.True(t, got)
-	got = helper.Digits(idx, 4, 1) // 2
-	be.True(t, got)
-	got = helper.Digits(idx, 0, 3) // ABC
-	be.True(t, !got)
-	got = helper.Digits(idx, 1, 4) // BC12
-	be.True(t, !got)
+	be.True(t, helper.Digits(idx, 3, 3))  // 123
+	be.True(t, helper.Digits(idx, 4, 1))  // 2
+	be.True(t, !helper.Digits(idx, 0, 3)) // ABC
+	be.True(t, !helper.Digits(idx, 1, 4)) // BC12
 }
 
 func TestPhone(t *testing.T) {
 	t.Parallel()
+
 	numbers := []string{"123-1234", "000-0000", "999-9999"}
 	for _, numb := range numbers {
 		ok := helper.Phone(0, []byte(numb))
 		be.True(t, ok)
 	}
-	notnumb := []string{"123 1234", "123A1234", "123_1234", "2005-12-12", "9999-555", "999-555X"}
-	for _, s := range notnumb {
+
+	nans := []string{"123 1234", "123A1234", "123_1234", "2005-12-12", "9999-555", "999-555X"}
+	for _, s := range nans {
 		ok := helper.Phone(0, []byte(s))
 		be.True(t, !ok)
 	}
@@ -699,10 +710,13 @@ func TestPhone(t *testing.T) {
 
 func TestMaskTerm(t *testing.T) {
 	t.Parallel()
+
 	p := []byte("Use the following CD key: 123456")
+
 	got := string(helper.MaskTerm(p...))
 	be.True(t, got == "Use the following Cxxxxx: 123456")
 	p = []byte("Use the following number: 123456")
+
 	got = string(helper.MaskTerm(p...))
 	be.True(t, got == "Use the following number: 123456")
 }
@@ -720,7 +734,7 @@ func TestNANP(t *testing.T) {
 		{"invalid area code 100", "100-555-1234", false},
 		{"missing hyphens", "3055551234", false},
 		{"too short", "305-555-123", false},
-		{"too long", "305-555-123456", true}, // First 12 bytes form valid NANP
+		{"too long", "305-555-123456", true}, // first 12 bytes form valid NANP
 		{"wrong format", "305/555/1234", false},
 		{"empty", "", false},
 	}
