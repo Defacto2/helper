@@ -749,7 +749,7 @@ func StrongIntegrity(name string) (string, error) {
 	return strong, nil
 }
 
-// StrongIntegrityR returns the SHA-386 checksum value of the named file..
+// StrongIntegrityR returns the SHA-386 checksum value of the named file.
 func StrongIntegrityR(r *os.Root, name string) (string, error) {
 	const format = "strong integrity %s: %w"
 

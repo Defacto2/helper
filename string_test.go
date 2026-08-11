@@ -47,10 +47,12 @@ func ExampleCapitalize() {
 }
 
 func ExampleCfUUID() {
-	newid, _ := helper.CfUUID("00000000-0000-0000-0000000000000000")
-	fmt.Println(newid)
+	const cfid = "00000000-0000-0000-0000000000000000"
+	newid, _ := helper.CfUUID(cfid)
+	fmt.Printf("uuid %s\ncfid %s\n", newid, cfid)
 	// Output:
-	// 00000000-0000-0000-0000-000000000000
+	// uuid 00000000-0000-0000-0000-000000000000
+	// cfid 00000000-0000-0000-0000000000000000
 }
 
 func ExampleDeleteDupe() {
@@ -144,8 +146,8 @@ func ExampleTimeDistance() {
 }
 
 func ExampleAdd1() {
-	num := helper.Add1(2)
-	fmt.Println(num)
+	n := helper.Add1(2)
+	fmt.Println(n)
 	// Output:
 	// 3
 }
@@ -556,11 +558,13 @@ func TestTitleize(t *testing.T) {
 func TestMask_errors(t *testing.T) {
 	t.Parallel()
 
-	p := []byte("this string is too short")
-	be.Equal(t, helper.Mask(p...), p)
+	base := []byte("this string is too short")
+	be.Equal(t, helper.Mask(base...), base)
 
-	p = random(t, 100_000)
-	be.Equal(t, helper.Mask(p...), p)
+	const target = 4096
+	count := (target / len(base)) + 1
+	src := bytes.Repeat(base, count)[:target]
+	be.Equal(t, helper.Mask(src...), src)
 }
 
 func TestMask(t *testing.T) {

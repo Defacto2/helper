@@ -33,7 +33,7 @@ tasks:
   nil:
     desc: 'Run the static analysis techniques to catch Nil dereferences.'
     cmds:
-      - go tool nilaway -test=false ./...
+      - go tool nilaway ./...
   pkg-patch:
     aliases:
       - 'patch'

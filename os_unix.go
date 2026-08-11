@@ -10,11 +10,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// DiskStat returns the total, free, and percentage free of the drive path.
-// If no path is provided then the drive of the working directory is used.
-//
-// The returned string is a humanized percentage, ie "50%".
-func DiskStat(path string) (float64, float64, float64, string, error) {
+// DiskStat returns the total bytes, free bytes, percentage free, and formatted percentage string.
+// If no path is provided, the drive of the current working directory is used.
+func DiskStat(path string) ( //nolint:nonamedreturns
+	total float64, free float64, percentage float64, formatted string, err error,
+) {
 	var stat unix.Statfs_t
 	if path == "" {
 		wd, err := os.Getwd()
@@ -26,11 +26,23 @@ func DiskStat(path string) (float64, float64, float64, string, error) {
 	if err := unix.Statfs(path, &stat); err != nil {
 		return 0, 0, 0, "", fmt.Errorf("unix stat fs: %w", err)
 	}
-	// Available blocks * size per block = available space in bytes
-	const half, hundred = 0.5, 100
-	totl := float64(stat.Blocks) * float64(stat.Bsize)
-	free := float64(stat.Bavail) * float64(stat.Bsize)
-	perc := (free / totl) * hundred
-	s := fmt.Sprintf("%d%%", int64(math.Floor(perc+half)))
-	return totl, free, perc, s, nil
+
+	// Use fragment size (Frsize) for accurate block allocation math
+	bsize := float64(stat.Frsize)
+	if bsize == 0 {
+		bsize = float64(stat.Bsize) // fallback if Frsize is not reported
+	}
+
+	total = float64(stat.Blocks) * bsize
+	free = float64(stat.Bavail) * bsize
+
+	if total == 0 {
+		return 0, 0, 0, "0%", nil
+	}
+
+	const calc = 100.0
+	x := (free / total) * calc
+	s := fmt.Sprintf("%d%%", int64(math.Round(x)))
+
+	return total, free, x, s, nil
 }

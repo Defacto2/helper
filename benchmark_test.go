@@ -62,7 +62,7 @@ func BenchmarkMask(b *testing.B) {
 
 // BenchmarkObfuscateID - ID obfuscation.
 func BenchmarkObfuscateID(b *testing.B) {
-	ids := []int64{1, 100, 1000, 10000, 999999}
+	ids := []int64{1, 100, 1000, 10_000, 999_999}
 	b.ResetTimer()
 	for b.Loop() {
 		for _, id := range ids {
@@ -93,8 +93,8 @@ func BenchmarkSplitAsSpaces(b *testing.B) {
 
 // BenchmarkIntegrity - File comparison (uses fileMatch internally).
 func BenchmarkIntegrity(b *testing.B) {
-	data1 := bytes.Repeat([]byte("x"), 10000)
-	data2 := bytes.Repeat([]byte("y"), 10000)
+	data1 := bytes.Repeat([]byte("x"), 10_000)
+	data2 := bytes.Repeat([]byte("y"), 10_000)
 	b.ResetTimer()
 	for b.Loop() {
 		helper.IntegrityBytes(data1)

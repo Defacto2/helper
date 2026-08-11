@@ -1,22 +1,18 @@
 package helper_test
 
 import (
-	"bytes"
 	"embed"
 	"fmt"
-	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/Defacto2/helper"
 	"github.com/nalgeon/be"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
-	uni "golang.org/x/text/encoding/unicode"
 )
 
 //go:embed testdata
@@ -33,9 +29,8 @@ const (
 	testdataBMP    = 750_054         // the byte count of the textdata file helper/textdata/TEST.BMP
 	testdataBMP384 = `cfa5f5f91417786fd4d63d79e82e613e355621dc8759` +
 		`b616f53a1be738880d2ea6da25ae1fef13de3174903d1818f3a2` // the result of sha384hmac -u TEST.BMP
-	testUNID  = "00000000-0000-0000-0000-000000000000" // common universal unique identifier example
-	testCUID  = "00000000-0000-0000-0000000000000000"  // coldfusion uuid example
-	testChars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	testUNID = "00000000-0000-0000-0000-000000000000" // common universal unique identifier example
+	testCUID = "00000000-0000-0000-0000000000000000"  // coldfusion uuid example
 )
 
 // testdata returns the absolute path to the helper/testdata directory.
@@ -87,83 +82,11 @@ func cleanup(tb testing.TB, path string) {
 	}
 }
 
-func random(tb testing.TB, n int) []byte {
-	tb.Helper()
-
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = testChars[rand.N(len(testChars))] //nolint:gosec
-	}
-	return b
-}
-
-func TestDetermineEncoding_Unicode(t *testing.T) {
-	t.Parallel()
-	sr := strings.NewReader("Hello world 👾!!!")
-	got := helper.Determine(sr)
-	be.Equal(t, got, cp437)
-}
-
-// Test the fast BOM path specifically.
-func TestDetermineEncoding_BOM(t *testing.T) {
-	t.Parallel()
-	// UTF-8 BOM should be detected instantly.
-	withBOM := strings.NewReader("\xEF\xBB\xBFHello World")
-	got := helper.Determine(withBOM)
-	be.Equal(t, got, uni.UTF8)
-}
-
-func TestDetermineEncoding(t *testing.T) {
-	t.Parallel()
-	got := helper.Determine(nil)
-	be.Equal(t, got, nil)
-	sr := strings.NewReader("Hello world!")
-	got = helper.Determine(sr)
-	be.Equal(t, got, latin1)
-	p := []byte("")
-	p = append(p, 0x1b)
-	p = append(p, []byte("[31mHelloWorld")...)
-	br := bytes.NewReader(p)
-	got = helper.Determine(br)
-	be.Equal(t, got, latin1)
-	sr = strings.NewReader("\nHello world!\n")
-	got = helper.Determine(sr)
-	be.Equal(t, got, latin1)
-	p = []byte("")
-	p = append(p, 0xb2)
-	p = append(p, []byte(" Hello world! ")...)
-	p = append(p, 0xb2)
-	br = bytes.NewReader(p)
-	got = helper.Determine(br)
-	be.Equal(t, got, latin1)
-	p = []byte("")
-	p = append(p, 0x0D, 0x0E) // CP437 ♪ ♫
-	p = append(p, []byte(" aah bah cah")...)
-	br = bytes.NewReader(p)
-	got = helper.Determine(br)
-	be.Equal(t, got, cp437)
-	const house = 0x7f
-	p = []byte("")
-	p = append(p, house)
-	p = append(p, []byte(" a DOS house glyph ")...)
-	br = bytes.NewReader(p)
-	got = helper.Determine(br)
-	be.Equal(t, got, cp437)
-	const line = 0xc4
-	p = []byte("")
-	p = append(p, line, line, line, line, line, line)
-	p = append(p, []byte(" a DOS line glyph ")...)
-	br = bytes.NewReader(p)
-	got = helper.Determine(br)
-	be.Equal(t, got, cp437)
-}
-
 func TestCookieStore(t *testing.T) {
 	t.Parallel()
 	b, err := helper.CookieStore("")
 	be.Err(t, err, nil)
-	got := utf8.RuneCount(b)
-	be.Equal(t, got, 32)
+	be.Equal(t, len(b), 32)
 
 	const key = "my-secret-key"
 	b, err = helper.CookieStore(key)
@@ -173,22 +96,33 @@ func TestCookieStore(t *testing.T) {
 
 func TestLocalIPs(t *testing.T) {
 	t.Parallel()
+
 	ips, err := helper.LocalIPs()
-	// we can't test the actual IP addresses as they will be different on each machine.
 	be.Err(t, err, nil)
-	be.True(t, len(ips) > 0)
+
+	for _, ip := range ips {
+		be.True(t, ip.To4() != nil)
+		be.True(t, !ip.IsLoopback())
+		be.True(t, !ip.IsUnspecified())
+	}
 }
 
 func TestLocalHosts(t *testing.T) {
 	t.Parallel()
+
 	hosts, err := helper.LocalHosts()
 	be.Err(t, err, nil)
 	be.True(t, len(hosts) > 0)
-	// we can't test the actual host names as they will be different on each machine.
+
+	// ensure hostnames are not empty
+	for _, h := range hosts {
+		be.True(t, len(h) > 0)
+	}
 }
 
 func TestLatency(t *testing.T) {
 	t.Parallel()
+
 	result := helper.Latency()
 	got := result.Before(time.Now())
 	be.True(t, got)
@@ -199,32 +133,46 @@ func TestTimeDistance(t *testing.T) {
 	now := time.Now()
 	got := helper.TimeDistance(now, now, false)
 	be.Equal(t, got, "less than a minute")
+
 	got = helper.TimeDistance(now, now.Add(time.Minute+time.Second), false)
 	be.Equal(t, got, "1 minute")
+
 	got = helper.TimeDistance(now, now.Add(time.Second*2), true)
 	be.Equal(t, got, "less than 5 seconds")
+
 	got = helper.TimeDistance(now, now.Add(time.Second*9), true)
 	be.Equal(t, got, "less than 10 seconds")
+
 	got = helper.TimeDistance(now, now.Add(time.Second*19), true)
 	be.Equal(t, got, "less than 20 seconds")
+
 	got = helper.TimeDistance(now, now.Add(time.Second*35), true)
 	be.Equal(t, got, "half a minute")
+
 	got = helper.TimeDistance(now, now.Add(time.Second*60), true)
 	be.Equal(t, got, "1 minute")
+
 	got = helper.TimeDistance(now, now.Add(time.Hour), true)
 	be.Equal(t, got, "about 1 hour")
+
 	got = helper.TimeDistance(now, now.Add(time.Hour*24), true)
 	be.Equal(t, got, "1 day")
+
 	got = helper.TimeDistance(now, now.Add(time.Hour*24*2), true)
 	be.Equal(t, got, "2 days")
+
 	got = helper.TimeDistance(now, now.Add(time.Hour*24*30), true)
 	be.Equal(t, got, "about 1 month")
+
 	got = helper.TimeDistance(now, now.Add(time.Hour*24*365), true)
 	be.Equal(t, got, "about 1 year")
+
 	got = helper.TimeDistance(now, now.Add(time.Hour*24*500), true)
 	be.Equal(t, got, "over 1 year")
+
 	got = helper.TimeDistance(now, now.Add(time.Hour*24*700), true)
 	be.Equal(t, got, "almost 2 years")
+
 	got = helper.TimeDistance(now, now.Add(time.Hour*24*365*10), true)
 	be.Equal(t, got, "10 years")
 }
@@ -235,6 +183,7 @@ func TestAdd1(t *testing.T) {
 		a      any
 		expect int64
 	}{
+		{-99, -98},
 		{0, 1},
 		{"xyz", 0},
 		{123, 124},
@@ -251,23 +200,13 @@ func TestAdd1(t *testing.T) {
 
 func TestBools(t *testing.T) {
 	t.Parallel()
-	be.True(t, !helper.Day(-1))
-	be.True(t, !helper.Day(32))
+
 	be.True(t, helper.Day(1))
-	be.True(t, !helper.Year(-1))
 	be.True(t, helper.Year(1970))
-	be.True(t, !helper.Year(time.Now().Year()+1))
-}
-
-func TestDetermineFile(t *testing.T) {
-	t.Parallel()
-
-	// This is a CP-437 file that can also be read as ISO-8859-1..
-	r, err := os.Open("testdata/PKZ80A1.TXT")
-	be.Err(t, err, nil)
-	defer r.Close()
-	got := helper.Determine(r)
-	be.Equal(t, got, latin1)
+	be.True(t, !helper.Day(-1))                   // negative day
+	be.True(t, !helper.Day(32))                   // invalid day
+	be.True(t, !helper.Year(-1))                  // negative year
+	be.True(t, !helper.Year(time.Now().Year()+1)) // one year into the future
 }
 
 func TestLocalHostPing(t *testing.T) {
@@ -299,23 +238,26 @@ func TestLocalHostPing(t *testing.T) {
 	}
 }
 
-// TestByteCountEdgeCases tests extremely large numbers that would overflow byteUnits..
+// TestByteCountEdgeCases tests extremely large numbers that could overflow.
 func TestByteCountEdgeCases(t *testing.T) {
 	t.Parallel()
+
 	huge := int64(1) * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 // 1 exabyte
+
 	got := helper.ByteCount(huge)
 	be.True(t, len(got) > 0)
-	// Verify it doesn't panic or produce invalid output
 	be.True(t, strings.ContainsAny(got, "KMGTPE"))
 }
 
-// TestTimeDistanceZeroHoursFix verifies that 2 hours doesn't return "0 hours"..
+// TestTimeDistanceZeroHoursFix verifies that 2 hours doesn't return "0 hours".
 func TestTimeDistanceZeroHoursFix(t *testing.T) {
 	t.Parallel()
+
 	base := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
 	got := helper.TimeDistance(base, base.Add(2*time.Hour), false)
-	// Should NOT contain "0 hours"
+
+	// Must not contain "0 hours"
 	be.True(t, !strings.Contains(got, "0 hours"))
-	// Should contain "2 hours"
+	// Must contain "2 hours"
 	be.True(t, strings.Contains(got, "2 hours"))
 }

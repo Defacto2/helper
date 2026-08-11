@@ -2,26 +2,16 @@
 package helper
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
-	"maps"
-	"math/big"
+	"math"
 	"net"
 	"net/http"
 	"os"
 	"time"
-	"unicode"
-	"unicode/utf8"
-
-	"golang.org/x/text/encoding"
-	"golang.org/x/text/encoding/charmap"
-	uni "golang.org/x/text/encoding/unicode"
-	"golang.org/x/text/unicode/runenames"
 )
 
 const (
@@ -42,7 +32,6 @@ const (
 	unknownRune    = 65533 // Unicode replacement character (�)
 	kcfAltEsc      = 0x9b  // Amiga had Keymap Qualifier Bits, which could be a typo to generate an Alt-Esc sequence?
 	bell           = 0x07  // ASCII bell character that is sometimes found in Amiga ANSI files
-	house          = 0x7f  // CP-437 house character that displays a unique glyph in the Amiga Topaz font
 
 	formFeed       = '\f'
 	newline        = '\n'
@@ -64,7 +53,7 @@ var (
 )
 
 // Add1 returns the value of a + 1.
-// The type of a must be an integer type or the result is 0.
+// The type of a must be a signed integer type or the result is 0.
 func Add1(a any) int64 {
 	switch val := a.(type) {
 	case int:
@@ -76,6 +65,9 @@ func Add1(a any) int64 {
 	case int32:
 		return int64(val) + 1
 	case int64:
+		if val == math.MaxInt64 {
+			return val // overflow wrap-around
+		}
 		return val + 1
 	default:
 		return 0
@@ -93,19 +85,10 @@ func CookieStore(envKey string) ([]byte, error) {
 		return key, nil
 	}
 
-	const letters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	const length = 32
-	key := make([]byte, length)
-	n, err := rand.Read(key)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrKey, err.Error())
-	}
-	if n != length {
-		return nil, ErrKey
-	}
-
-	for i, b := range key {
-		key[i] = letters[b%byte(len(letters))]
+	const size = 32
+	key := make([]byte, size)
+	if _, err := rand.Read(key); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrKey, err)
 	}
 
 	return key, nil
@@ -114,223 +97,13 @@ func CookieStore(envKey string) ([]byte, error) {
 // Day returns true if the i value can be used as a day time value.
 func Day(i int) bool {
 	const maxDay = 31
-	if i > 0 && i <= maxDay {
-		return true
-	}
-	return false
-}
-
-// Determine returns the encoding of the plain text byte slice, either
-// the charmap.ISO8859_1 or charmap.CodePage437 encoding is returned.
-//
-// Without false-positives, is difficult to determine the encoding of a text slice without
-// a BOM or other metadata, especially a legacy, 8-bit code page encoding vs UTF-8 encoding.
-// For example, the 👾 (alien monster) emoji in UTF-8 is comprised
-// of the bytes 240, 159, 145, 190, which are all valid CP-437 characters.
-//
-//	"👾"	// [240 159 145 190] unicode.UTF8
-//	"≡ƒæ╛"	// [240 159 145 190] charmap.CodePage437
-func Determine(r io.Reader) encoding.Encoding { //nolint:ireturn
-	sl := slog.New(slog.DiscardHandler)
-	return determine(sl, r)
-}
-
-// DetermineS functions the same as Determine, however you can provide a
-// slog logger to track character or sequence matches for false-positive
-// discoveries and other possible problems.
-func DetermineS(sl *slog.Logger, r io.Reader) encoding.Encoding { //nolint:ireturn
-	if sl == nil {
-		sl = slog.New(slog.DiscardHandler)
-	}
-	return determine(sl, r)
-}
-
-func determine(sl *slog.Logger, r io.Reader) encoding.Encoding { //nolint:ireturn,cyclop
-	const msg = "helper determine r encoding"
-	if sl == nil {
-		sl = slog.New(slog.DiscardHandler)
-	}
-	if r == nil {
-		sl.Info(msg, slog.Bool("empty reader", true))
-		return nil
-	}
-	p, err := io.ReadAll(r)
-	if err != nil {
-		sl.Info(msg, slog.Any("readall rune", err))
-		return nil
-	}
-	sl.Info(msg, slog.Int("bytes", len(p)))
-	if e := suppliment(sl, p); e != nil {
-		return e
-	}
-	if e := chars(sl, p); e != nil {
-		return e
-	}
-	if e := sequences(sl, p); e != nil {
-		return e
-	}
-	// Check for Unicode multi-byte characters
-	// If an unknown rune is encountered then assume the encoding is
-	// using a legacy 8-bit code page encoding, such as CP-437.
-	tick := time.Now()
-	for _, r := range bytes.Runes(p) {
-		if utf8.RuneLen(r) > 1 {
-			switch {
-			// we use this switch to handle any obvious false-positives
-			case unicode.Is(unicode.Arabic, r):
-				sl.Info(msg, slog.Bool("arabic rune", true),
-					slog.Duration("time", time.Since(tick)))
-				// '┌┐' cp437 char sequence gets mistaken as a multi-byte Arabic ڿ script
-				return charmap.CodePage437
-			case r == unknownRune:
-				sl.Info(msg, slog.Bool("unknown rune", true),
-					slog.Duration("time", time.Since(tick)))
-				return charmap.ISO8859_1
-			}
-			sl.Info(msg, slog.Bool("multi-byte rune", true),
-				slog.Duration("time", time.Since(tick)))
-			return uni.UTF8
-		}
-	}
-	sl.Info(msg, slog.Bool("latin-1", true),
-		slog.Duration("time", time.Since(tick)))
-	return charmap.ISO8859_1
-}
-
-// Suppliment returns the encoding of UTF8 if p contains the following
-// Unicode characters.
-//
-//	•─█
-func suppliment(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
-	const msg = "helper determine p unicode suppliments"
-	const bullet = '\u2022'    // •
-	const lightHoz = '\u2500'  // ─
-	const fullBlock = '\u2588' // █
-	f := func(r rune) bool {
-		return r == lightHoz || r == bullet || r == fullBlock
-	}
-	if bytes.ContainsFunc(p, f) {
-		sl.Info(msg, slog.Bool("found match", true))
-		return uni.UTF8
-	}
-	return nil
-}
-
-// Chars returns the encoding based on the presence of common CP-437 or ISO-8859-1 characters.
-// A nil encoding is returned if no encoding is determined.
-//
-// This should be done before checking for multi-byte characters, which could be misinterpreted as UTF-8 runes.
-func chars(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
-	const msg = "helper determine p chars"
-	const bullet, interpunct = 0xf9, 0xfa
-	tick := time.Now()
-	for i, char := range p {
-		switch {
-		case char == escape:
-			// escape control character commonly used in ANSI escaped sequences
-			continue
-		case // oddball control characters that are sometimes found in Amiga ANSI files
-			char == kcfAltEsc,
-			char == bell:
-			continue
-		case // common whitespace control characters
-			char == formFeed,
-			char == newline,
-			char == carriageReturn,
-			char == tab,
-			char == verticalTab:
-			continue
-		// case r == unknownRune:
-		// 	// when an unknown extended-ASCII character (128-255) is encountered
-		// 	continue
-		case char >= undefinedStart && char <= undefinedEnd:
-			// unused ASCII, which we can probably assumed to be CP-437
-			logChar(sl, msg, tick, i, char)
-			return charmap.CodePage437
-		case char >= controlStart && char <= controlEnd:
-			// ASCII control characters, which we can probably assumed to be CP-437 glyphs
-			logChar(sl, msg, tick, i, char)
-			return charmap.CodePage437
-		case char == interpunct, char == bullet:
-			return charmap.CodePage437
-		}
-	}
-	sl.Info(msg, slog.Duration("time", time.Since(tick)))
-	return nil
-}
-
-func logChar(sl *slog.Logger, msg string, tick time.Time, i int, char byte) {
-	r := rune(char)
-	sl.Info(msg, slog.String("character",
-		fmt.Sprintf("%d> %s 0x%X %d %s %s", i,
-			string(char), char, char, string(r), runenames.Name(r))),
-		slog.Duration("time", time.Since(tick)))
-}
-
-// Sequences returns the encoding based on the presence of common CP-437 or ISO-8859-1 character sequences.
-// Full block, medium shade, horizontal bars and half blocks are sequences of characters that are often
-// unique to the CP-437 encoding.
-//
-// This should be done before checking for multi-byte characters, which could be misinterpreted as UTF-8 runes.
-func sequences(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
-	const msg = "helper determine p seqs"
-	const (
-		shadeLight     = 0xb0 // ░ ~ °
-		shadeMedium    = 0xb1 // ▒ ~ ±
-		shadeDark      = 0xb2 // ▓ ~ ²
-		singleHorizBar = 0xc4 // ─ ~ Ä
-		doubleHorizBar = 0xcd // ═ ~ Í
-		fullBlock      = 0xdb // █ ~ Û
-		lowerHalfBlock = 0xdc // ▄ ~ Ü
-		upperHalfBlock = 0xdf // ▀ ~ ß
-		interpunct     = 0xfa // · ~ ú
-		bulletpoint    = 0xf9 // • ~ ù
-	)
-	// four and pairs are counts of unlikely sequences of characters
-	// for example, in normal use the degree sign is appended to digits
-	// and wouldn't be used as a pair "20°°"
-	const four, pair = 4, 2
-	matches := map[uint8]int{
-		shadeLight:     pair,
-		shadeMedium:    pair,
-		shadeDark:      pair,
-		singleHorizBar: pair,
-		doubleHorizBar: four,
-		fullBlock:      four,
-		lowerHalfBlock: four,
-		upperHalfBlock: pair,
-		interpunct:     pair,
-		bulletpoint:    pair,
-	}
-	tick := time.Now()
-	for char, count := range maps.All(matches) {
-		subslice := bytes.Repeat([]byte{char}, count)
-		if bytes.Contains(p, subslice) {
-			sl.Info(msg,
-				slog.String("matched subslice", string(subslice)),
-				slog.Duration("time", time.Since(tick)))
-			return charmap.CodePage437
-		}
-	}
-	guillemets := []byte{0xae, 0xaf} // «»
-	if bytes.Contains(p, guillemets) {
-		sl.Info(msg,
-			slog.Bool("guillements pair", true),
-			slog.Duration("time", time.Since(tick)))
-		return charmap.CodePage437
-	}
-	sl.Info(msg,
-		slog.Duration("time", time.Since(tick)))
-	return nil
+	return i > 0 && i <= maxDay
 }
 
 // Latency returns the stored, current local time.
 func Latency() *time.Time {
-	start := time.Now()
-	r := new(big.Int)
-	const n, k = 1000, 10
-	r.Binomial(n, k)
-	return &start
+	now := time.Now()
+	return &now
 }
 
 // LocalIPs returns a list of local IP addresses.
@@ -339,76 +112,85 @@ func Latency() *time.Time {
 //
 // [gosamples]: https://gosamples.dev/local-ip-address
 func LocalIPs() ([]net.IP, error) {
-	var ips []net.IP
 	addresses, err := net.InterfaceAddrs()
 	if err != nil {
-		const format = "net interface addresses: %w"
-		return nil, fmt.Errorf(format, err)
+		return nil, fmt.Errorf("net interface addresses: %w", err)
 	}
 
+	var ips []net.IP
 	for _, addr := range addresses {
-		if ipnet, ipnetExists := addr.(*net.IPNet); ipnetExists && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				ips = append(ips, ipnet.IP)
-			}
+		ipnet, ok := addr.(*net.IPNet)
+		if !ok || ipnet.IP.IsLoopback() {
+			continue
+		}
+
+		// Ensure it is a valid IPv4 address and append the 4-byte slice
+		if ip4 := ipnet.IP.To4(); ip4 != nil {
+			ips = append(ips, ip4)
 		}
 	}
+
 	return ips, nil
 }
 
 // LocalHosts returns a list of local hostnames.
 func LocalHosts() ([]string, error) {
-	const format = "local hosts %s: %w"
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, fmt.Errorf(format, "hostname", err)
+		return nil, fmt.Errorf("local hosts hostname: %w", err)
 	}
-	hosts := []string{}
+
+	const size = 2
+	hosts := make([]string, 0, size)
 	hosts = append(hosts, hostname)
-	resolve := net.Resolver{}
-	_, err = resolve.LookupHost(context.Background(), "localhost")
-	if err != nil {
-		return nil, fmt.Errorf(format, "net lookup host", err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
+	defer cancel()
+
+	const localhost = "localhost"
+	resolver := net.Resolver{}
+	if _, err := resolver.LookupHost(ctx, localhost); err == nil {
+		if hostname != localhost {
+			hosts = append(hosts, localhost)
+		}
 	}
-	hosts = append(hosts, "localhost")
+
 	return hosts, nil
 }
 
-// Ping sends a HTTP GET request to the provided URI and returns the status code and size of the response.
+// Default HTTP client with connection reuse enabled.
+var defaultPingClient = &http.Client{ //nolint:gochecknoglobals
+	Timeout: Timeout,
+}
+
+// Ping sends a HTTP GET request to the provided URI, it returns the status code and response size.
 func Ping(ctx context.Context, uri string) (int, int64, error) {
-	const format = "helper ping %s %w: %s"
-	client := http.Client{
-		Timeout: Timeout,
-	}
+	const format = "helper ping %s %s: %w"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return 0, 0, fmt.Errorf(format, "new request", err, uri)
+		return 0, 0, fmt.Errorf(format, "new request", uri, err)
 	}
 	req.Header.Set("User-Agent", UserAgent)
-	res, err := client.Do(req)
-	if err != nil || res == nil {
-		return 0, 0, fmt.Errorf(format, "client do", err, uri)
+
+	res, err := defaultPingClient.Do(req)
+	if res != nil {
+		defer res.Body.Close()
 	}
-	defer res.Body.Close()
+	if err != nil {
+		return 0, 0, fmt.Errorf(format, "client do", uri, err)
+	}
 
 	size, err := io.Copy(io.Discard, res.Body)
 	if err != nil {
-		return http.StatusInternalServerError, 0, fmt.Errorf(format, "body copy", err, uri)
+		return res.StatusCode, 0, fmt.Errorf(format, "body copy", uri, err)
 	}
+
 	return res.StatusCode, size, nil
 }
 
-// LocalHostPing sends a HTTP GET request to the provided URI on the localhost
-// and returns the status code and size of the response.
+// LocalHostPing sends a HTTP GET request to the provided URI on localhost.
 func LocalHostPing(ctx context.Context, uri, proto string, port int) (int, int64, error) {
-	const local = "localhost"
-	resolve := net.Resolver{}
-	_, err := resolve.LookupHost(ctx, local)
-	if err != nil {
-		const format = "helper localhost ping lookup: %w"
-		return http.StatusInternalServerError, 0, fmt.Errorf(format, err)
-	}
-	url := fmt.Sprintf("%s://%s:%d%s", proto, local, port, uri)
+	url := fmt.Sprintf("%s://localhost:%d%s", proto, port, uri)
 	return Ping(ctx, url)
 }
 
@@ -419,17 +201,25 @@ func TimeDistance(from, to time.Time, seconds bool) string {
 	// https://github.com/cfwheels/cfwheels/blob/cf8e6da4b9a216b642862e7205345dd5fca34b54/wheels/global/misc.cfm#L112
 
 	delta := to.Sub(from)
-	secs, mins, hrs := int(delta.Seconds()),
-		int(delta.Minutes()),
-		int(delta.Hours())
+	if delta < 0 {
+		delta = -delta
+	}
 
-	const hours, days, months, year, years, twoyears = 1440, 43200, 525600, 657000, 919800, 1051200
+	secs := int(delta.Seconds())
+	mins := int(delta.Minutes())
+	hrs := int(delta.Hours())
+
+	const (
+		hours    = 1440    // 1 day in minutes
+		days     = 43200   // 30 days in minutes
+		months   = 525600  // 365 days in minutes
+		year     = 657000  // 456 days in minutes
+		years    = 919800  // 638 days in minutes
+		twoyears = 1051200 // 730 days in minutes
+	)
 	switch {
 	case mins <= 1:
-		if !seconds {
-			return lessMin(secs)
-		}
-		return lessMinAsSec(secs)
+		return lessMin(secs, seconds)
 	case mins < hours:
 		return lessHours(mins, hrs)
 	case mins < days:
@@ -444,20 +234,20 @@ func TimeDistance(from, to time.Time, seconds bool) string {
 		return "almost 2 years"
 	default:
 		y := mins / months
-
 		return fmt.Sprintf("%d years", y)
 	}
 }
 
 // lessMin returns a string describing the time difference in seconds or minutes.
-func lessMin(secs int) string {
-	const minute = 60
-	switch {
-	case secs < minute:
-		return "less than a minute"
-	default:
-		return "1 minute"
+func lessMin(secs int, seconds bool) string {
+	if seconds {
+		return lessMinAsSec(secs)
 	}
+	const minute = 60
+	if secs < minute {
+		return "less than a minute"
+	}
+	return "1 minute"
 }
 
 // lessMinAsSec returns a string describing the time difference in seconds.
@@ -479,69 +269,57 @@ func lessMinAsSec(secs int) string {
 
 // lessHours returns a string describing the time difference in hours.
 func lessHours(mins, hrs int) string {
-	const parthour, abouthour, hours = 45, 90, 1440
+	const parthour, abouthour = 45, 90
 	switch {
 	case mins < parthour:
 		return fmt.Sprintf("%d minutes", mins)
 	case mins < abouthour:
 		return "about 1 hour"
-	case mins < hours:
+	default:
 		if hrs == 0 {
 			hrs = 1
 		}
 		return fmt.Sprintf("about %d hours", hrs)
-	default:
-		return ""
 	}
 }
 
 // lessDays returns a string describing the time difference in days.
 func lessDays(mins, hrs int) string {
-	const day, days = 2880, 43200
-	switch {
-	case mins < day:
+	const day = 2880
+	if mins < day {
 		return "1 day"
-	case mins < days:
-		const hoursinaday = 24
-		d := hrs / hoursinaday
-		if d == 0 {
-			d = 1
-		}
-		return fmt.Sprintf("%d days", d)
-	default:
-		return ""
 	}
+	const hours = 24
+	d := hrs / hours
+	if d == 0 {
+		d = 1
+	}
+	return fmt.Sprintf("%d days", d)
 }
 
 // lessMonths returns a string describing the time difference in months.
 func lessMonths(mins, hrs int) string {
-	const month, months = 86400, 525600
-	switch {
-	case mins < month:
+	const month = 86400
+	if mins < month {
 		return "about 1 month"
-	case mins < months:
-		const hoursinamonth = 730
-		m := hrs / hoursinamonth
-		if m == 0 {
-			m = 1
-		}
-		return fmt.Sprintf("%d months", m)
-	default:
-		return ""
 	}
+	const hours = 730
+	m := hrs / hours
+	if m == 0 {
+		m = 1
+	}
+	return fmt.Sprintf("%d months", m)
 }
 
-// Year returns true if the i value is greater than 1969
-// or equal to the current year.
+// Year returns true if the i value is between 1970 and (inclusive of) the current year.
 func Year(i int) bool {
 	const unix = 1970
 	now := time.Now().Year()
-	if i >= unix && i <= now {
-		return true
-	}
-	return false
+	return i >= unix && i <= now
 }
 
+// LoggerKey is unused.
+//
 // Deprecated: As of release v1.5.
 const LoggerKey string = "logger"
 

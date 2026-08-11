@@ -80,7 +80,7 @@ func ByteCountFloat(b int64) string {
 	return strconv.FormatFloat(val, 'f', prec, 64) + " " + string(byteUnits[exp]) + "B"
 }
 
-// Capitalize returns a string with the first letter of the first word capitalized..
+// Capitalize returns a string with the first letter of the first word capitalized.
 // If the first word is an acronym, it is capitalized as a word.
 func Capitalize(s string) string {
 	if s == "" {
@@ -97,7 +97,7 @@ func Capitalize(s string) string {
 	return caser.String(s[:i]) + s[i:]
 }
 
-// ChrLast returns the last character or rune of the string..
+// ChrLast returns the last character or rune of the string.
 func ChrLast(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -137,7 +137,7 @@ func CfUUID(cfid string) (string, error) {
 	return newid, nil
 }
 
-// DeleteDupe removes duplicate strings from a slice..
+// DeleteDupe removes duplicate strings from a slice.
 // The returned slice is sorted and compacted.
 func DeleteDupe(s ...string) []string {
 	if len(s) == 0 {
@@ -148,7 +148,7 @@ func DeleteDupe(s ...string) []string {
 	return slices.Compact(x)
 }
 
-// DeObfuscate deobfuscates the obfuscated string, or returns the original string..
+// DeObfuscate deobfuscates the obfuscated string, or returns the original string.
 //
 // This function is a port of the [deobfuscateParam] function programmed in ColdFusion (CFML).
 //
@@ -202,7 +202,7 @@ func DeObfuscate(s string) string {
 	return string(values)
 }
 
-// DeobfuscateID deobfuscates an obfuscated ID to return the primary key of the record..
+// DeobfuscateID deobfuscates an obfuscated ID to return the primary key of the record.
 // Returns a 0 if the id is not valid.
 func DeobfuscateID(id string) int {
 	key, err := strconv.Atoi(DeObfuscate(id))
@@ -212,7 +212,7 @@ func DeobfuscateID(id string) int {
 	return key
 }
 
-// DeobfuscateURL deobfuscates an obfuscated record URL to return a record's primary key..
+// DeobfuscateURL deobfuscates an obfuscated record URL to return a record's primary key.
 // A URL can point to a Defacto2 record download or detail page.
 // Returns a 0 if the URL is not valid.
 func DeobfuscateURL(rawURL string) int {
@@ -227,7 +227,7 @@ func DeobfuscateURL(rawURL string) int {
 	return DeobfuscateID(path.Base(p))
 }
 
-// FmtSlice formats a comma separated string..
+// FmtSlice formats a comma separated string.
 func FmtSlice(s string) string {
 	var b strings.Builder
 	const sep = ","
@@ -339,7 +339,7 @@ func Mask(p ...byte) []byte {
 	return out.Bytes()
 }
 
-// MaskTerm replaces a predefined list of words and combinations with a series of x characters..
+// MaskTerm replaces a predefined list of words and combinations with a series of x characters.
 // For example, any occurrence of the word "password" will be masked as "pxxxxxx".
 //
 // MaskTerm should not be used with [Mask] as it duplicates functionality.
@@ -364,7 +364,7 @@ func MaskTerm(p ...byte) []byte {
 	return out.Bytes()
 }
 
-// IndexTerm searches the p byte array for a predefined list of words and combinations..
+// IndexTerm searches the p byte array for a predefined list of words and combinations.
 // Any matches will return the location index of the match.
 // If no matches are found a 0 is returned.
 //
@@ -420,7 +420,7 @@ func isAlphaNum(c byte) bool {
 		(c >= 'A' && c <= 'Z')
 }
 
-// Digits returns true if the slice of bytes is a sequence of digits..
+// Digits returns true if the slice of bytes is a sequence of digits.
 // i is the index position and n is the number of bytes to match.
 func Digits(b []byte, i, n int) bool {
 	if i < 0 || n <= 0 || i+n > len(b) {
@@ -434,7 +434,7 @@ func Digits(b []byte, i, n int) bool {
 	return true
 }
 
-// Phone matches a 3-4, 7 digit telephone number, i.e., "555-1234"..
+// Phone matches a 3-4, 7 digit telephone number, i.e., "555-1234".
 func Phone(i int, p []byte) bool {
 	const length = 8 // 3 digits + '-' + 4 digits
 	if i < 0 || i+length > len(p) {
@@ -444,7 +444,7 @@ func Phone(i int, p []byte) bool {
 	return p[i+3] == '-' && Digits(p, i, prefix) && Digits(p, i+suffix, suffix)
 }
 
-// PhoneDE matches a 3-3-3, 9 digit telephone number, i.e., "555-123-456"..
+// PhoneDE matches a 3-3-3, 9 digit telephone number, i.e., "555-123-456".
 func PhoneDE(i int, p []byte) bool {
 	const length = 11 // 3 + '-' + 3 + '-' + 3
 	if i < 0 || i+length > len(p) {
@@ -460,7 +460,7 @@ func PhoneDE(i int, p []byte) bool {
 		Digits(p, i+endoff, n)
 }
 
-// PhoneEuro matches a 2-6, 8 digit telephone number, i.e., "55-123456"..
+// PhoneEuro matches a 2-6, 8 digit telephone number, i.e., "55-123456".
 func PhoneEuro(i int, p []byte) bool {
 	const length = 9 // 2 + '-' + 6
 	if i < 0 || i+length > len(p) {
@@ -474,7 +474,7 @@ func PhoneEuro(i int, p []byte) bool {
 		Digits(p, i+suffix, digits)
 }
 
-// NANP matches an areacode and a 7 digit number, i.e., 305-555-1234..
+// NANP matches an areacode and a 7 digit number, i.e., 305-555-1234.
 // However, area codes below 200 are not matched, ie 199-555-1234.
 func NANP(i int, p []byte) bool {
 	const length = 12 // 3 + '-' + 3 + '-' + 4
@@ -492,7 +492,7 @@ func NANP(i int, p []byte) bool {
 		Digits(p, i+endoff, n+1)
 }
 
-// serial5x5 matches 12345-67890-ABCDE-FGHIJ-LMNOP..
+// serial5x5 matches 12345-67890-ABCDE-FGHIJ-LMNOP.
 func serial5x5(i int, p []byte) bool { //nolint:cyclop
 	const length = 29 // (5 * 5) + 4 hyphens = 29
 	if i < 0 || i+length > len(p) {
@@ -517,7 +517,7 @@ func serial5x5(i int, p []byte) bool { //nolint:cyclop
 		Alpha09(p, i+off4, n)
 }
 
-// serial5x4 matches 1234-5678-ABCD-EFGH-IJKL..
+// serial5x4 matches 1234-5678-ABCD-EFGH-IJKL.
 func serial5x4(i int, p []byte) bool { //nolint:cyclop
 	const length = 25 // (5 * 4) + 4 hyphens + 1 trailing delimiter = 25
 	if i < 0 || i+length > len(p) {
@@ -543,7 +543,7 @@ func serial5x4(i int, p []byte) bool { //nolint:cyclop
 		Alpha09(p, i+off4, n)
 }
 
-// serial6x4 matches 1234-5678-ABCD-EFGH-IJKL-MNOP..
+// serial6x4 matches 1234-5678-ABCD-EFGH-IJKL-MNOP.
 func serial6x4(i int, p []byte) bool { //nolint:cyclop
 	const length = 29 // (6 * 4) + 5 hyphens = 29
 	if i < 0 || i+length > len(p) {
@@ -570,7 +570,7 @@ func serial6x4(i int, p []byte) bool { //nolint:cyclop
 		Alpha09(p, i+off5, n)
 }
 
-// serial4774 matches 1234-567890A-BCDEFGH-IJKL..
+// serial4774 matches 1234-567890A-BCDEFGH-IJKL.
 func serial4774(i int, p []byte) bool {
 	const length = 25 // 4 + '-' + 7 + '-' + 7 + '-' + 4 = 25
 	if i < 0 || i+length > len(p) {
@@ -592,7 +592,7 @@ func serial4774(i int, p []byte) bool {
 		Alpha09(p, i+off3, n4)
 }
 
-// digits4774 matches 1234 1234567 1234567 1234..
+// digits4774 matches 1234 1234567 1234567 1234.
 func digit4774(i int, p []byte) bool {
 	const length = 25 // 4 + ' ' + 7 + ' ' + 7 + ' ' + 4 = 25
 	if i < 0 || i+length > len(p) {
@@ -614,12 +614,12 @@ func digit4774(i int, p []byte) bool {
 		Digits(p, i+off3, n4)
 }
 
-// ObfuscateID obfuscates the primary key of a record as a string that is used as a URL param or path..
+// ObfuscateID obfuscates the primary key of a record as a string that is used as a URL param or path.
 func ObfuscateID(key int64) string {
 	return Obfuscate(strconv.Itoa(int(key)))
 }
 
-// Obfuscate obfuscates a numeric string to insecurely hide database primary key values when passed along a URL..
+// Obfuscate obfuscates a numeric string to insecurely hide database primary key values when passed along a URL.
 //
 // This function is a port of the [obfuscateParam] function programmed in ColdFusion (CFML).
 //
@@ -675,7 +675,7 @@ func ReverseInt(i int) (int, error) {
 	return ReverserInt(i), nil
 }
 
-// PageCount returns the maximum pages possible for the sum of records with a record limit per-page..
+// PageCount returns the maximum pages possible for the sum of records with a record limit per-page.
 func PageCount(sum, limit int) int {
 	if sum <= 0 || limit <= 0 {
 		return 0
@@ -684,7 +684,7 @@ func PageCount(sum, limit int) int {
 	return (sum + limit - 1) / limit
 }
 
-// Released returns a string release date as year, month, day int16 values..
+// Released returns a string release date as year, month, day int16 values.
 // The string is expected to be in the format "2024-07-15" or "2024-07" or "2024".
 func Released(s string) (year, month, day int16) { //nolint:cyclop,nonamedreturns
 	const minimum = 4
@@ -740,7 +740,7 @@ func parse2Digits(b string) int16 {
 	return int16(b[0]-'0')*10 + int16(b[1]-'0')
 }
 
-// SearchTerm returns a list of search terms from the input string..
+// SearchTerm returns a list of search terms from the input string.
 // The input string is split by commas.
 func SearchTerm(input string) []string {
 	if input == "" {
@@ -761,7 +761,7 @@ func SearchTerm(input string) []string {
 	return s
 }
 
-// ShortMonth takes a month integer and abbreviates it to a three letter English month..
+// ShortMonth takes a month integer and abbreviates it to a three letter English month.
 func ShortMonth(month int) string {
 	if month < 1 || month > 12 {
 		return ""
@@ -770,7 +770,7 @@ func ShortMonth(month int) string {
 	return time.Month(month).String()[:length]
 }
 
-// Slug returns a URL friendly string of the named group..
+// Slug returns a URL friendly string of the named group.
 func Slug(name string) string {
 	if name == "" {
 		return ""
@@ -866,7 +866,7 @@ var englishCaser = sync.OnceValue(func() cases.Caser { //nolint:gochecknoglobals
 	return cases.Title(language.English, cases.NoLower)
 })
 
-// Titleize returns a string with the first letter of each word capitalized..
+// Titleize returns a string with the first letter of each word capitalized.
 // If a word is an acronym, it is capitalized as a word.
 func Titleize(s string) string {
 	if s == "" {
