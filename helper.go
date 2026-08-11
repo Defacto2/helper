@@ -55,6 +55,7 @@ var (
 	ErrDiffLength = errors.New("files are of different lengths")
 	ErrDirPath    = errors.New("directory path is a file")
 	ErrExistPath  = errors.New("path ready exists and will not overwrite")
+	ErrFileEmpty  = errors.New("file is empty with no content")
 	ErrFilePath   = errors.New("file path is a directory")
 	ErrKey        = errors.New("could not generate a random session key")
 	ErrOSFile     = errors.New("os file is nil")

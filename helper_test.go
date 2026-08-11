@@ -26,6 +26,62 @@ var (
 	cp437  encoding.Encoding = charmap.CodePage437 //nolint:gochecknoglobals
 )
 
+const (
+	testdataBad    = "no_such-path!" // intended to be used as an invalid file or directory path
+	testdataCount  = 3               // the expected number of files found in the helper/testdata directory
+	testdataBMP    = 750_054         // the byte count of the textdata file helper/textdata/TEST.BMP
+	testdataBMP384 = `cfa5f5f91417786fd4d63d79e82e613e355621dc8759` +
+		`b616f53a1be738880d2ea6da25ae1fef13de3174903d1818f3a2` // the result of sha384hmac -u TEST.BMP
+)
+
+// testdata returns the absolute path to the helper/testdata directory.
+var testdata = func() string { //nolint:gochecknoglobals
+	const format = "testdata %s: %v"
+	dir, err := filepath.Abs("testdata")
+	if err != nil {
+		panic(fmt.Sprintf(format, "absolute path failed", err))
+	}
+	st, err := os.Stat(dir)
+	if err != nil {
+		panic(fmt.Sprintf(format, "missing or unreadable "+dir, err))
+	}
+	if !st.IsDir() {
+		panic("testdata is not a directory " + dir)
+	}
+	return dir
+}()
+
+// createCombo creates a temporary directory containing a single text file.
+// The directory gets cleaned up after use.
+//
+//   - The returned size is the file size of the created text file.
+//   - The dir is the absolute path to the temporary directory.
+//   - The src is the absolute path to the src.txt file in the temporary directory.
+//   - The dst is the absolute path to a possible target destination file, if warranted.
+func createCombo(tb testing.TB) (size int, dir, src, dst string) { //nolint:nonamedreturns
+	tb.Helper()
+
+	dir = tb.TempDir()
+	src = filepath.Join(dir, "src.txt")
+	dst = filepath.Join(dir, "dst.txt")
+
+	const s = "Hello world!"
+	data := []byte(s)
+	size, err := helper.TouchW(src, data...)
+	be.Err(tb, err, nil)
+	be.Equal(tb, len(data), size)
+
+	return
+}
+
+// cleanup removes the path and its content and logs any errors.
+func cleanup(tb testing.TB, path string) {
+	tb.Helper()
+	if err := os.RemoveAll(path); err != nil {
+		tb.Logf("could not remove the path %s: %v", path, err)
+	}
+}
+
 func TestDetermineEncoding_Unicode(t *testing.T) {
 	t.Parallel()
 	sr := strings.NewReader("Hello world 👾!!!")
@@ -116,40 +172,6 @@ func TestLocalHosts(t *testing.T) {
 	// we can't test the actual host names as they will be different on each machine.
 }
 
-func TestIntegrity(t *testing.T) {
-	t.Parallel()
-	got, err := helper.Integrity("", embed.FS{})
-	be.Err(t, err)
-	be.Equal(t, got, "")
-	got, err = helper.Integrity("nosuchfile", testdataFS)
-	be.Err(t, err)
-	be.Equal(t, got, "")
-	got, err = helper.Integrity("testdata/TEST.DOC", testdataFS)
-	be.Err(t, err, nil)
-	be.Equal(t, got, "sha384-5X6isqmILTavQSao9DigKt3O8fX1Hd6hrGJ7pUROFPYWmkKRnFuWwTnjO3h9QkWP")
-}
-
-func TestIntegrityFile(t *testing.T) {
-	t.Parallel()
-	got, err := helper.IntegrityFile("")
-	be.Err(t, err)
-	be.Equal(t, got, "")
-	got, err = helper.IntegrityFile("nosuchfile")
-	be.Err(t, err)
-	be.Equal(t, got, "")
-	got, err = helper.IntegrityFile("testdata/TEST.DOC")
-	be.Err(t, err, nil)
-	be.Equal(t, got, "sha384-5X6isqmILTavQSao9DigKt3O8fX1Hd6hrGJ7pUROFPYWmkKRnFuWwTnjO3h9QkWP")
-}
-
-func TestIntegrityBytes(t *testing.T) {
-	t.Parallel()
-	got := helper.IntegrityBytes(nil)
-	be.Equal(t, got, "sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb")
-	got = helper.IntegrityBytes([]byte("hello world"))
-	be.Equal(t, got, "sha384-/b2OdaZ/KfcBpOBAOF4uI5hjA+oQI5IRr5B/y7g1eLPkF8txzmRu/QgZ3YwIjeG9")
-}
-
 func TestLatency(t *testing.T) {
 	t.Parallel()
 	result := helper.Latency()
@@ -208,83 +230,6 @@ func TestAdd1(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			t.Parallel()
 			be.Equal(t, helper.Add1(tt.a), tt.expect)
-		})
-	}
-}
-
-func TestFileMatch(t *testing.T) {
-	t.Parallel()
-	_, err := helper.FileMatch("", "")
-	be.Err(t, err)
-	got, err := helper.FileMatch("helper.go", "helper.go")
-	be.Err(t, err, nil)
-	be.True(t, got)
-	got, err = helper.FileMatch("helper_test.go", "helper.go")
-	be.Err(t, err, nil)
-	be.True(t, !got)
-}
-
-func TestFinds(t *testing.T) {
-	t.Parallel()
-	s := []string{"abc", "def", "ghi"}
-	type args struct {
-		name  string
-		names []string
-	}
-	tests := []struct {
-		args   args
-		expect bool
-	}{
-		{args{"", nil}, false},
-		{args{"", []string{}}, false},
-		{args{"xyz", s}, false},
-		{args{"def", s}, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.args.name, func(t *testing.T) {
-			t.Parallel()
-			got := helper.Finds(tt.args.name, tt.args.names...)
-			be.Equal(t, got, tt.expect)
-		})
-	}
-}
-
-func TestIsFile(t *testing.T) {
-	t.Parallel()
-	self := filepath.Join(".", "helper_test.go")
-	tests := []struct {
-		name   string
-		expect bool
-	}{
-		{self, true},
-		{"^&%#$%@#", false},
-		{"testdata/", false},
-		{"testdata/TEST.DOC", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			be.Equal(t, helper.File(tt.name), tt.expect)
-		})
-	}
-}
-
-func TestIsStat(t *testing.T) {
-	t.Parallel()
-	self := filepath.Join(".", "helper_test.go")
-	tests := []struct {
-		name   string
-		expect bool
-	}{
-		{self, true},
-		{"^&%#$%@#", false},
-		{"testdata/", true},
-		{"testdata/TEST.DOC", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			be.Equal(t, helper.Stat(tt.name), tt.expect)
 		})
 	}
 }

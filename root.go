@@ -67,7 +67,7 @@ func FileMatchR(r *os.Root, name1, name2 string) (bool, error) {
 		return false, fmt.Errorf(format, name2, err)
 	}
 	defer f2.Close()
-	return fileMatch(f1, f2)
+	return ReaderMatch(f1, f2)
 }
 
 // RenameRoot renames a file from oldname to newname..
@@ -112,7 +112,7 @@ func StrongIntegrityR(r *os.Root, name string) (string, error) {
 		return "", fmt.Errorf(format, "open", err)
 	}
 	defer f.Close()
-	strong, err := Sum386(f)
+	strong, err := Sum384(f)
 	if err != nil {
 		return "", fmt.Errorf(format, "sum", err)
 	}

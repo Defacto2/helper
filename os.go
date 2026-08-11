@@ -4,6 +4,7 @@ package helper
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
@@ -31,11 +32,6 @@ const (
 	// The file owner and group has read and write access, and others have read access.
 	WriteWriteRead   fs.FileMode = 0o664 // WriteWriteRead is the file mode for read and write access.
 	DirWriteReadRead fs.FileMode = 0o755 // DirWriteReadRead sets directory permissions for read, write, and execute.
-)
-
-var (
-	errEmptyFile = errors.New("utf8: empty file")
-	errInvaidSrc = errors.New("invalid source path")
 )
 
 // Extension is a file extension with a count of files.
@@ -81,47 +77,82 @@ func CountExts(dir string) ([]Extension, error) {
 // Count returns the number of files in the given directory.
 func Count(dir string) (int, error) {
 	const format = "count directory files %s %w"
-	i := 0
-	st, err := os.Stat(dir)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return 0, fmt.Errorf(format, "os stat", err)
+		return 0, fmt.Errorf(format, dir, err)
 	}
-	if !st.IsDir() {
-		return 0, fmt.Errorf("%w: %s", ErrDirPath, dir)
-	}
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return 0, fmt.Errorf(format, "os readdir", err)
-	}
-	for _, file := range files {
-		if file.IsDir() {
+
+	count := 0
+	for _, entry := range entries {
+		if skipCount(entry) {
 			continue
 		}
-		if file.Name() == DSStore {
-			continue
-		}
-		i++
+		count++
 	}
-	return i, nil
+
+	return count, nil
+}
+
+func skipCount(entry os.DirEntry) bool {
+	return entry == nil || entry.IsDir() || !entry.Type().IsRegular() || entry.Name() == DSStore
+}
+
+// CountStream returns the file count using chunked directory method.
+// It is more memory efficient with directories containing many items (10,000+)
+// however, it is slightly slower.
+func CountStream(dir string) (int, error) {
+	const format = "steam count directory files %s %w"
+	f, err := os.Open(dir)
+	if err != nil {
+		return 0, fmt.Errorf(format, dir, err)
+	}
+	defer f.Close()
+
+	// read entries in batches of n to prevent memory spikes
+	const n = 1024
+	count := 0
+	for {
+		entries, err := f.ReadDir(n)
+		for _, entry := range entries {
+			if skipCount(entry) {
+				continue
+			}
+			count++
+		}
+		if err != nil {
+			break
+		}
+	}
+
+	return count, nil
 }
 
 // DiskUsage returns the total size of the files in the given directory.
 func DiskUsage(path string) (int64, error) {
-	var size int64
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+	const format = "disk usage %s: %w"
+	var total int64
+
+	err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
-			fmt.Fprintln(io.Discard, err)
-			return nil
+			return fmt.Errorf(format, "access "+p, err)
 		}
-		if !info.IsDir() {
-			size += info.Size()
+
+		// skip directories and non-regular files such as symlinks, devices, sockets
+		if !d.IsDir() && d.Type().IsRegular() {
+			info, err := d.Info()
+			if err != nil {
+				return fmt.Errorf(format, "info "+p, err)
+			}
+			total += info.Size()
 		}
+
 		return nil
 	})
 	if err != nil {
-		return 0, fmt.Errorf("disk usage %w", err)
+		return 0, fmt.Errorf(format, "walk", err)
 	}
-	return size, nil
+
+	return total, nil
 }
 
 // Duplicate is a workaround for renaming files across different devices.
@@ -244,10 +275,12 @@ func FileMatch(name1, name2 string) (bool, error) {
 		return false, nil
 	}
 
-	return fileMatch(f1, f2)
+	return ReaderMatch(f1, f2)
 }
 
-func fileMatch(r1, r2 io.Reader) (bool, error) { //nolint:cyclop
+// ReaderMatch returns true if the content of the two readers are the same.
+// The read buffer size is 4096 bytes.
+func ReaderMatch(r1, r2 io.Reader) (bool, error) { //nolint:cyclop
 	const format = "file match chunk: %w"
 	const bufSize = 4096
 	buf1 := make([]byte, bufSize)
@@ -371,12 +404,13 @@ func CountLines(r io.Reader) (int, error) {
 // The directory is created if it does not exist. The directory is named after the source file.
 func MkContent(src string) (string, error) {
 	const format = "make content %s: %w"
-	base := filepath.Base(src)
-	base = strings.TrimSpace(strings.ToLower(base))
-	if base == "." || base == "/" || base == "" {
-		return "", fmt.Errorf(format, "invalid source path "+src, errInvaidSrc)
+
+	if !filepath.IsLocal(src) {
+		return "", fmt.Errorf(format, "invalid path "+src, filepath.ErrBadPattern)
 	}
 
+	base := filepath.Base(src)
+	base = strings.TrimSpace(strings.ToLower(base))
 	pattern := "artifact-content-" + base
 	dst := filepath.Join(TmpDir(), pattern)
 
@@ -469,48 +503,70 @@ func RenameFile(oldpath, newpath string) error {
 
 // RenameFileOW renames a file from oldpath to newpath.
 // If newpath is an existing directory, it is removed.
-// It returns an error if the oldpath does not exist or is a directory
-// or the rename fails.
+// An error is returned if the oldpath does not exist,
+// the oldpath is a directory, or the rename fails.
 func RenameFileOW(oldpath, newpath string) error {
 	st, err := os.Stat(newpath)
 	if err == nil && st.IsDir() {
-		_ = os.Remove(newpath)
+		if rErr := os.RemoveAll(newpath); rErr != nil {
+			const format = "rename file ow remove all newpath %s: %w"
+			return fmt.Errorf(format, newpath, rErr)
+		}
 	}
 	return RenameFile(oldpath, newpath)
 }
 
-// RenameCrossDevice copies oldpath to newpath and removes oldpath when crossing filesystem boundaries.
+// RenameCrossDevice copies oldpath to newpath and removes oldpath when crossing file system boundaries.
+// It can be used as a workaround for renaming files across different devices and file systems,
+// such as a mounted Docker volume.
 func RenameCrossDevice(oldpath, newpath string) error {
 	const format = "cross-device copy %s: %w"
+
 	src, err := os.Open(oldpath)
 	if err != nil {
 		return fmt.Errorf(format, "open src", err)
 	}
-	defer src.Close()
+	st, err := src.Stat()
+	if err != nil {
+		return fmt.Errorf(format, "stat src", err)
+	}
+	if st.IsDir() {
+		return fmt.Errorf(format, "src is a directory", ErrFilePath)
+	}
 
-	// Use O_EXCL to ensure newpath is created atomically without overwriting
-	const flag, perm = os.O_WRONLY | os.O_CREATE | os.O_EXCL, 0o666
+	// O_EXCL is to ensure newpath is created atomically without overwriting
+	const flag = os.O_WRONLY | os.O_CREATE | os.O_EXCL
+	const perm = WriteWriteRead
 	dst, err := os.OpenFile(newpath, flag, perm)
 	if err != nil {
+		src.Close()
 		if errors.Is(err, os.ErrExist) {
 			return fmt.Errorf(format, newpath, ErrExistPath)
 		}
 		return fmt.Errorf(format, "create dst", err)
 	}
 
+	// copy stream from src to dst
 	_, copyErr := io.Copy(dst, src)
 	closeErr := dst.Close()
 
+	// clean up the destination file if there were any errors
 	if copyErr != nil {
-		os.Remove(newpath) // Clean up partial file on failure
+		src.Close()
+		_ = os.Remove(newpath)
 		return fmt.Errorf(format, "content", copyErr)
 	}
 	if closeErr != nil {
-		os.Remove(newpath)
+		src.Close()
+		_ = os.Remove(newpath)
 		return fmt.Errorf(format, "close dst", closeErr)
 	}
 
-	src.Close() // Close before removing on Windows
+	// close src before removing oldpath (required on Windows)
+	if err := src.Close(); err != nil {
+		return fmt.Errorf(format, "close src", err)
+	}
+
 	if err := os.Remove(oldpath); err != nil {
 		return fmt.Errorf(format, "remove src", err)
 	}
@@ -518,48 +574,11 @@ func RenameCrossDevice(oldpath, newpath string) error {
 	return nil
 }
 
-// RenameCrossDevice is a workaround for renaming files across different devices.
-// A cross device can also be a different file system such as a Docker volume.
-func _RenameCrossDevice(oldpath, newpath string) (err error) {
-	const format = "rename cross device %s %w"
-	src, err := os.Open(oldpath)
-	if err != nil {
-		return fmt.Errorf(format, "open source", err)
-	}
-	defer src.Close()
-	dst, err := os.Create(newpath)
-	if err != nil {
-		return fmt.Errorf(format, "create new", err)
-	}
-	defer func() {
-		if cErr := dst.Close(); cErr != nil {
-			err = errors.Join(err, fmt.Errorf(format, "close", cErr))
-		}
-	}()
-
-	if _, err = io.Copy(dst, src); err != nil {
-		return fmt.Errorf(format, "copy", err)
-	}
-
-	if fi, err := os.Stat(oldpath); err != nil {
-		_ = os.Remove(newpath)
-		return fmt.Errorf(format, "stat", err)
-	} else if fi.Size() == 0 {
-		_ = os.Remove(newpath)
-		_ = os.Remove(oldpath)
-		return fmt.Errorf(format, "empty file", os.ErrNotExist)
-	}
-	if err := os.Remove(oldpath); err != nil {
-		return fmt.Errorf(format, "remove source", err)
-	}
-	return nil
-}
-
 // Size returns the size of the named file.
-// If the file does not exist, it returns -1.
+// If the path name does not exist, is inaccessible or is a directory, it returns -1.
 func Size(name string) int64 {
 	st, err := os.Stat(name)
-	if err != nil {
+	if err != nil || st.IsDir() {
 		return -1
 	}
 	return st.Size()
@@ -567,56 +586,75 @@ func Size(name string) int64 {
 
 // Stat stats the named file or directory to confirm it exists on the system.
 func Stat(name string) bool {
-	if _, err := os.Stat(name); err != nil {
+	_, err := os.Stat(name)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		// the file or directory does not exist
 		return false
 	}
-	return true
+	// it may exist, however there could be an file system or permissions error
+	return false
 }
 
 // SortNames sorts the names using the filepath separator, where the root files are preferred.
 //
 // Usually the sep value is a forward slash (/) or a Windows backslash (\).
 func SortNames(sep string, names []string) []string {
+	if len(names) <= 1 {
+		return names
+	}
+
 	slices.SortFunc(names, func(a, b string) int {
-		alen := len(strings.Split(a, sep))
-		blen := len(strings.Split(b, sep))
-		if alen != blen {
-			return alen - blen
+		x := strings.Count(a, sep)
+		y := strings.Count(b, sep)
+		if x != y {
+			return cmp.Compare(x, y)
 		}
-		// else sort lexicographically
-		return strings.Compare(strings.ToLower(a), strings.ToLower(b))
+		// else, use more memory to sort lexicographically
+		return cmp.Compare(strings.ToLower(a), strings.ToLower(b))
 	})
 	return names
 }
 
-// StrongIntegrity returns the SHA-386 checksum value of the named file.
+// StrongIntegrity returns the SHA-384 checksum value of the named file.
 func StrongIntegrity(name string) (string, error) {
 	const format = "strong integrity %s: %w"
-	// strong hashes require the named file to be reopened after being read.
+
 	f, err := os.Open(name)
 	if err != nil {
 		return "", fmt.Errorf(format, "open", err)
 	}
 	defer f.Close()
-	strong, err := Sum386(f)
+
+	strong, err := Sum384(f)
 	if err != nil {
 		return "", fmt.Errorf(format, "sum", err)
 	}
 	return strong, nil
 }
 
-// Sum386 returns the SHA-386 checksum value of the open file.
-func Sum386(f *os.File) (string, error) {
-	const format = "sha386 checksum %s: %w"
-	if f == nil {
-		return "", ErrOSFile
+// Sum384 returns the hex-encoded SHA-384 checksum value of an io.Reader stream.
+func Sum384(r io.Reader) (string, error) {
+	if r == nil {
+		return "", nil
 	}
+
 	strong := sha512.New384()
-	if _, err := io.Copy(strong, f); err != nil {
-		return "", fmt.Errorf(format, f.Name(), err)
+	if _, err := io.Copy(strong, r); err != nil {
+		return "", fmt.Errorf("sha384 checksum read: %w", err)
 	}
-	s := hex.EncodeToString(strong.Sum(nil))
-	return s, nil
+
+	return hex.EncodeToString(strong.Sum(nil)), nil
+}
+
+// Deprecated: Use [Sum384] instead.
+func Sum386(f *os.File) (string, error) {
+	if f == nil {
+		return "", nil
+	}
+	return Sum384(f)
 }
 
 // TmpDir returns the temporary directory for the server,
@@ -632,23 +670,15 @@ func TmpDir() string {
 // Touch creates a new, empty named file.
 // If the file already exists, an error is returned.
 func Touch(name string) error {
-	const format = "touch file %s %w"
-	const flag = os.O_CREATE | os.O_EXCL
-	file, err := os.OpenFile(name, flag, WriteWriteRead)
-	if err != nil {
-		return fmt.Errorf(format, "open", err)
-	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf(format, "close", err)
-	}
-	return nil
+	_, err := TouchW(name)
+	return err
 }
 
 // TouchW creates a new named file with the given data.
 // If the file already exists, an error is returned.
 func TouchW(name string, data ...byte) (written int, err error) { //nolint:nonamedreturns
 	const flag = os.O_CREATE | os.O_EXCL | os.O_WRONLY
-	const format = "touch w file %s %w"
+	const format = "touch file %s %w"
 
 	file, err := os.OpenFile(name, flag, WriteWriteRead)
 	if err != nil {
@@ -674,50 +704,50 @@ func TouchW(name string, data ...byte) (written int, err error) { //nolint:nonam
 // The function reads the first 512 bytes of the file to determine the encoding.
 func UTF8(name string) (bool, error) {
 	const format = "utf8 %s: %w"
-	f, err := os.Open(name)
+	r, err := os.Open(name)
 	if err != nil {
 		return false, fmt.Errorf(format, "open", err)
 	}
-	defer f.Close()
+	defer r.Close()
 
-	const sampleSize = 512
-	buf := make([]byte, sampleSize)
+	const size = 512
+	buf := make([]byte, size)
 
-	// ReadAtLeast handles short reads gracefully until EOF or buffer full
-	n, err := io.ReadAtLeast(f, buf, 1)
+	// short read gracefully until EOF
+	n, err := io.ReadAtLeast(r, buf, 1)
 	if err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			if n == 0 {
-				return false, fmt.Errorf(format, name, errEmptyFile)
+				return false, fmt.Errorf(format, name, ErrFileEmpty)
 			}
 		} else {
 			return false, fmt.Errorf(format, name, err)
 		}
 	}
 
-	sub := buf[:n]
-
-	// If we read a full 512-byte chunk and didn't hit EOF, the last byte(s)
-	// might be a truncated UTF-8 multi-byte rune. Trim incomplete runes at the tail.
-	if n == sampleSize {
-		sub = trimIncompleteRuneTail(sub)
+	p := buf[:n]
+	if n == size {
+		// reading exactly 512 bytes might truncate a multi-byte rune
+		p = trimRuneTrail(p)
 	}
 
-	return utf8.Valid(sub), nil
+	return utf8.Valid(p), nil
 }
 
-// trimIncompleteRuneTail strips up to 3 bytes from the end if they form an incomplete UTF-8 sequence.
-func trimIncompleteRuneTail(b []byte) []byte {
-	for i := 1; i <= 3 && i <= len(b); i++ {
-		// utf8.RuneStart checks if the byte is the leading byte of a UTF-8 character
-		if utf8.RuneStart(b[len(b)-i]) {
-			r, _ := utf8.DecodeRune(b[len(b)-i:])
+// trimRuneTrail strips up to 3 bytes from the end of p,
+// if it forms incomplete Unicode.
+func trimRuneTrail(p []byte) []byte {
+	for i := 1; i <= 3 && i <= len(p); i++ {
+		// is b a leading byte of a rune?
+		b := p[len(p)-i]
+		if utf8.RuneStart(b) {
+			r, _ := utf8.DecodeRune(p[len(p)-i:])
 			if r == utf8.RuneError {
-				// Incomplete sequence at boundary, slice it off
-				return b[:len(b)-i]
+				// trim incomplete sequence
+				return p[:len(p)-i]
 			}
 			break
 		}
 	}
-	return b
+	return p
 }
