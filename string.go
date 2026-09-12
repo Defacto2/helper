@@ -1,3 +1,4 @@
+//nolint:cyclop,gochecknoglobals,nonamedreturns
 package helper
 
 // Package string contains helper functions for string operations.
@@ -33,8 +34,8 @@ const (
 
 // ByteCount formats b as in a compact, human-readable unit of measure.
 func ByteCount(b int64) string {
-	const unit = 1024
 	const base = 10
+	const unit = 1024
 	if b < unit {
 		return strconv.FormatInt(b, base) + "B"
 	}
@@ -44,6 +45,7 @@ func ByteCount(b int64) string {
 	if exp >= len(byteUnits) {
 		exp = len(byteUnits) - 1
 	}
+
 	div := uint64(1) << ((exp + 1) * base)
 	val := float64(u) / float64(div)
 	return strconv.FormatFloat(val, 'f', 0, 64) + string(byteUnits[exp])
@@ -134,6 +136,7 @@ func CfUUID(cfid string) (string, error) {
 	if err := uuid.Validate(newid); err != nil {
 		return "", fmt.Errorf(format, err)
 	}
+
 	return newid, nil
 }
 
@@ -143,6 +146,7 @@ func DeleteDupe(s ...string) []string {
 	if len(s) == 0 {
 		return []string{}
 	}
+
 	x := slices.Clone(s)
 	slices.Sort(x)
 	return slices.Compact(x)
@@ -209,6 +213,7 @@ func DeobfuscateID(id string) int {
 	if err != nil {
 		return 0
 	}
+
 	return key
 }
 
@@ -216,19 +221,29 @@ func DeobfuscateID(id string) int {
 // A URL can point to a Defacto2 record download or detail page.
 // Returns a 0 if the URL is not valid.
 func DeobfuscateURL(rawURL string) int {
+	if len(rawURL) == 0 {
+		return 0
+	}
+
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return 0
 	}
+
 	p := strings.TrimRight(u.Path, "/")
 	if p == "" {
 		return 0
 	}
+
 	return DeobfuscateID(path.Base(p))
 }
 
 // FmtSlice formats a comma separated string.
 func FmtSlice(s string) string {
+	if s == "" {
+		return ""
+	}
+
 	var b strings.Builder
 	const sep = ","
 
@@ -251,11 +266,13 @@ func FmtSlice(s string) string {
 // that is split strictly by newline (\n).
 func MaxLineLength(s string) int {
 	maxLen := 0
+
 	for line := range strings.SplitSeq(s, "\n") {
 		if n := utf8.RuneCountInString(line); n > maxLen {
 			maxLen = n
 		}
 	}
+
 	return maxLen
 }
 
@@ -267,11 +284,8 @@ const (
 
 var (
 	// Pre-computed mask strings for Mask() - computed once, reused many times.
-	//nolint:gochecknoglobals
 	maskChrs29 = bytes.Repeat([]byte{'0'}, Chrs29)
-	//nolint:gochecknoglobals
 	maskChrs25 = bytes.Repeat([]byte{'0'}, Chrs25)
-	//nolint:gochecknoglobals
 	maskChrs24 = bytes.Repeat([]byte{'0'}, Chrs24)
 )
 
@@ -371,8 +385,7 @@ func MaskTerm(p ...byte) []byte {
 // The predefined list are items that can trigger online bots.
 func IndexTerm(i int, p []byte) int {
 	sub := p[i:]
-	terms := terms()
-	for _, term := range terms {
+	for _, term := range terms() {
 		l := len(term)
 		if len(sub) >= l && bytes.EqualFold(sub[:l], term) {
 			return l
@@ -382,8 +395,6 @@ func IndexTerm(i int, p []byte) int {
 }
 
 // terms are intentionally fragmented and are kept as a var for caching.
-//
-//nolint:gochecknoglobals
 var terms = sync.OnceValue(func() [][]byte {
 	return [][]byte{
 		// generic
@@ -493,7 +504,7 @@ func NANP(i int, p []byte) bool {
 }
 
 // serial5x5 matches 12345-67890-ABCDE-FGHIJ-LMNOP.
-func serial5x5(i int, p []byte) bool { //nolint:cyclop
+func serial5x5(i int, p []byte) bool {
 	const length = 29 // (5 * 5) + 4 hyphens = 29
 	if i < 0 || i+length > len(p) {
 		return false
@@ -518,11 +529,12 @@ func serial5x5(i int, p []byte) bool { //nolint:cyclop
 }
 
 // serial5x4 matches 1234-5678-ABCD-EFGH-IJKL.
-func serial5x4(i int, p []byte) bool { //nolint:cyclop
+func serial5x4(i int, p []byte) bool {
 	const length = 25 // (5 * 4) + 4 hyphens + 1 trailing delimiter = 25
 	if i < 0 || i+length > len(p) {
 		return false
 	}
+
 	const (
 		n    = 4
 		off1 = 5
@@ -544,11 +556,12 @@ func serial5x4(i int, p []byte) bool { //nolint:cyclop
 }
 
 // serial6x4 matches 1234-5678-ABCD-EFGH-IJKL-MNOP.
-func serial6x4(i int, p []byte) bool { //nolint:cyclop
+func serial6x4(i int, p []byte) bool {
 	const length = 29 // (6 * 4) + 5 hyphens = 29
 	if i < 0 || i+length > len(p) {
 		return false
 	}
+
 	const (
 		n    = 4
 		off1 = 5
@@ -576,6 +589,7 @@ func serial4774(i int, p []byte) bool {
 	if i < 0 || i+length > len(p) {
 		return false
 	}
+
 	const (
 		n4   = 4
 		n7   = 7
@@ -598,6 +612,7 @@ func digit4774(i int, p []byte) bool {
 	if i < 0 || i+length > len(p) {
 		return false
 	}
+
 	const (
 		n4   = 4
 		n7   = 7
@@ -686,7 +701,7 @@ func PageCount(sum, limit int) int {
 
 // Released returns a string release date as year, month, day int16 values.
 // The string is expected to be in the format "2024-07-15" or "2024-07" or "2024".
-func Released(s string) (year, month, day int16) { //nolint:cyclop,nonamedreturns
+func Released(s string) (year, month, day int16) {
 	const minimum = 4
 	if len(s) < minimum {
 		return 0, 0, 0
@@ -766,6 +781,7 @@ func ShortMonth(month int) string {
 	if month < 1 || month > 12 {
 		return ""
 	}
+
 	const length = 3
 	return time.Month(month).String()[:length]
 }
@@ -804,6 +820,7 @@ func Slug(name string) string {
 			b.WriteRune(r)
 		}
 	}
+
 	res := strings.TrimSpace(strings.ToLower(b.String()))
 	return strings.ReplaceAll(res, " ", "-")
 }
@@ -820,7 +837,7 @@ func isPermitted(r rune) bool {
 }
 
 // SplitAsSpaces splits a string at each capital letter.
-func SplitAsSpaces(s string) string { //nolint:cyclop
+func SplitAsSpaces(s string) string {
 	if s == "" {
 		return ""
 	}
@@ -862,7 +879,7 @@ func SplitAsSpaces(s string) string { //nolint:cyclop
 	return result.String()
 }
 
-var englishCaser = sync.OnceValue(func() cases.Caser { //nolint:gochecknoglobals
+var englishCaser = sync.OnceValue(func() cases.Caser {
 	return cases.Title(language.English, cases.NoLower)
 })
 

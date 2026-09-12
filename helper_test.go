@@ -1,3 +1,4 @@
+//nolint:gochecknoglobals,nonamedreturns
 package helper_test
 
 import (
@@ -19,8 +20,8 @@ import (
 var testdataFS embed.FS
 
 var (
-	latin1 encoding.Encoding = charmap.ISO8859_1   //nolint:gochecknoglobals
-	cp437  encoding.Encoding = charmap.CodePage437 //nolint:gochecknoglobals
+	latin1 encoding.Encoding = charmap.ISO8859_1
+	cp437  encoding.Encoding = charmap.CodePage437
 )
 
 const (
@@ -34,7 +35,7 @@ const (
 )
 
 // testdata returns the absolute path to the helper/testdata directory.
-var testdata = func() string { //nolint:gochecknoglobals
+var testdata = func() string {
 	const format = "testdata %s: %v"
 	dir, err := filepath.Abs("testdata")
 	if err != nil {
@@ -57,7 +58,7 @@ var testdata = func() string { //nolint:gochecknoglobals
 //   - The dir is the absolute path to the temporary directory.
 //   - The src is the absolute path to the src.txt file in the temporary directory.
 //   - The dst is the absolute path to a possible target destination file, if warranted.
-func createCombo(tb testing.TB) (size int, dir, src, dst string) { //nolint:nonamedreturns
+func createCombo(tb testing.TB) (size int, dir, src, dst string) {
 	tb.Helper()
 
 	dir = tb.TempDir()

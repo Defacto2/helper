@@ -1,5 +1,6 @@
 //go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris || zos
 
+//nolint:nonamedreturns
 package helper
 
 import (
@@ -12,7 +13,7 @@ import (
 
 // DiskStat returns the total bytes, free bytes, percentage free, and formatted percentage string.
 // If no path is provided, the drive of the current working directory is used.
-func DiskStat(path string) ( //nolint:nonamedreturns
+func DiskStat(path string) (
 	total float64, free float64, percentage float64, formatted string, err error,
 ) {
 	var stat unix.Statfs_t

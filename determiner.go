@@ -1,3 +1,4 @@
+//nolint:cyclop,ireturn
 package helper
 
 import (
@@ -25,7 +26,7 @@ import (
 //
 //	"👾"	// [240 159 145 190] unicode.UTF8
 //	"≡ƒæ╛"	// [240 159 145 190] charmap.CodePage437
-func Determine(r io.Reader) encoding.Encoding { //nolint:ireturn
+func Determine(r io.Reader) encoding.Encoding {
 	sl := slog.New(slog.DiscardHandler)
 	return determine(sl, r)
 }
@@ -33,7 +34,7 @@ func Determine(r io.Reader) encoding.Encoding { //nolint:ireturn
 // DetermineWithLogger functions the same as Determine, however you can provide a
 // slog logger to track character or sequence matches for false-positive
 // discoveries and other possible problems.
-func DetermineWithLogger(sl *slog.Logger, r io.Reader) encoding.Encoding { //nolint:ireturn
+func DetermineWithLogger(sl *slog.Logger, r io.Reader) encoding.Encoding {
 	if sl == nil {
 		sl = slog.New(slog.DiscardHandler)
 	}
@@ -41,64 +42,70 @@ func DetermineWithLogger(sl *slog.Logger, r io.Reader) encoding.Encoding { //nol
 }
 
 // Deprecated: Use [DetermineWithLogger] instead.
-func DetermineS(sl *slog.Logger, r io.Reader) encoding.Encoding { //nolint:ireturn
+func DetermineS(sl *slog.Logger, r io.Reader) encoding.Encoding {
 	return DetermineWithLogger(sl, r)
 }
 
-func determine(sl *slog.Logger, r io.Reader) encoding.Encoding { //nolint:ireturn,cyclop
+func determine(sl *slog.Logger, r io.Reader) encoding.Encoding {
 	const msg = "helper determine r encoding"
 	if sl == nil {
 		sl = slog.New(slog.DiscardHandler)
 	}
 	if r == nil {
-		sl.Info(msg, slog.Bool("empty reader", true))
+		sl.Info(msg, slog.Bool("empty_reader", true))
 		return nil
 	}
+
 	p, err := io.ReadAll(r)
 	if err != nil {
-		sl.Info(msg, slog.Any("readall rune", err))
+		sl.Info(msg, slog.Any("readall_rune", err))
 		return nil
 	}
+
 	sl.Info(msg, slog.Int("bytes", len(p)))
 	if e := DetermineSupplement(sl, p); e != nil {
 		return e
 	}
+
 	if e := DetermineChar(sl, p); e != nil {
 		return e
 	}
 	if e := DetermineSequences(sl, p); e != nil {
 		return e
 	}
+
 	// Check for Unicode multi-byte characters
 	// If an unknown rune is encountered then assume the encoding is
 	// using a legacy 8-bit code page encoding, such as CP-437.
 	tick := time.Now()
+
+	logT := func(s string) {
+		sl.Info(msg+" "+s, slog.Duration("time", time.Since(tick)))
+	}
+
 	for _, r := range bytes.Runes(p) {
 		if utf8.RuneLen(r) > 1 {
 			switch {
 			// we use this switch to handle any obvious false-positives
 			case unicode.Is(unicode.Arabic, r):
-				sl.Info(msg, slog.Bool("arabic rune", true),
-					slog.Duration("time", time.Since(tick)))
+				logT(msg + "arabic rune")
 				// '┌┐' cp437 char sequence gets mistaken as a multi-byte Arabic ڿ script
 				return charmap.CodePage437
 			case r == unknownRune:
-				sl.Info(msg, slog.Bool("unknown rune", true),
-					slog.Duration("time", time.Since(tick)))
+				logT(msg + "unknown rune")
 				return charmap.ISO8859_1
 			}
-			sl.Info(msg, slog.Bool("multi-byte rune", true),
-				slog.Duration("time", time.Since(tick)))
+			logT(msg + "multi-byte rune")
 			return uni.UTF8
 		}
 	}
-	sl.Info(msg, slog.Bool("latin-1", true),
-		slog.Duration("time", time.Since(tick)))
+
+	logT("latin-1")
 	return charmap.ISO8859_1
 }
 
 // DetermineSupplement returns unicode.UTF8 if p contains common UTF-8 block/symbol characters (•, ─, █).
-func DetermineSupplement(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
+func DetermineSupplement(sl *slog.Logger, p []byte) encoding.Encoding {
 	const msg = "helper determine p unicode supplements"
 
 	// must use doublequotes ("") for the UTF-8 byte representations of •, ─, █
@@ -116,7 +123,7 @@ func DetermineSupplement(sl *slog.Logger, p []byte) encoding.Encoding { //nolint
 
 // DetermineChar returns the encoding based on the presence of common CP-437 or ISO-8859-1 characters.
 // A nil encoding is returned if no encoding is determined.
-func DetermineChar(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:cyclop,ireturn
+func DetermineChar(sl *slog.Logger, p []byte) encoding.Encoding {
 	const msg = "helper determine p chars"
 	const bullet, interpunct = 0xf9, 0xfa
 	tick := time.Now()
@@ -214,7 +221,7 @@ var cp437Sequences = []cp437Pattern{ //nolint:gochecknoglobals
 }
 
 // DetermineSequences returns the encoding based on the presence of common CP-437 or ISO-8859-1 character sequences.
-func DetermineSequences(sl *slog.Logger, p []byte) encoding.Encoding { //nolint:ireturn
+func DetermineSequences(sl *slog.Logger, p []byte) encoding.Encoding {
 	const msg = "helper determine p seqs"
 	tick := time.Now()
 

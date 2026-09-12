@@ -1,4 +1,6 @@
 // Package helper has general and shared functions.
+//
+//nolint:exhaustruct_v5,gochecknoglobals
 package helper
 
 import (
@@ -11,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -159,13 +162,14 @@ func LocalHosts() ([]string, error) {
 }
 
 // Default HTTP client with connection reuse enabled.
-var defaultPingClient = &http.Client{ //nolint:gochecknoglobals
+var defaultPingClient = &http.Client{
 	Timeout: Timeout,
 }
 
 // Ping sends a HTTP GET request to the provided URI, it returns the status code and response size.
 func Ping(ctx context.Context, uri string) (int, int64, error) {
 	const format = "helper ping %s %s: %w"
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return 0, 0, fmt.Errorf(format, "new request", uri, err)
@@ -176,7 +180,7 @@ func Ping(ctx context.Context, uri string) (int, int64, error) {
 	if res != nil {
 		defer res.Body.Close()
 	}
-	if err != nil {
+	if res == nil || err != nil {
 		return 0, 0, fmt.Errorf(format, "client do", uri, err)
 	}
 
@@ -190,8 +194,7 @@ func Ping(ctx context.Context, uri string) (int, int64, error) {
 
 // LocalHostPing sends a HTTP GET request to the provided URI on localhost.
 func LocalHostPing(ctx context.Context, uri, proto string, port int) (int, int64, error) {
-	url := fmt.Sprintf("%s://localhost:%d%s", proto, port, uri)
-	return Ping(ctx, url)
+	return Ping(ctx, proto+"://localhost:"+strconv.Itoa(port)+uri)
 }
 
 // TimeDistance describes the difference between two time values.
@@ -220,21 +223,27 @@ func TimeDistance(from, to time.Time, seconds bool) string {
 	switch {
 	case mins <= 1:
 		return lessMin(secs, seconds)
+
 	case mins < hours:
 		return lessHours(mins, hrs)
+
 	case mins < days:
 		return lessDays(mins, hrs)
+
 	case mins < months:
 		return lessMonths(mins, hrs)
+
 	case mins < year:
 		return "about 1 year"
+
 	case mins < years:
 		return "over 1 year"
+
 	case mins < twoyears:
 		return "almost 2 years"
+
 	default:
-		y := mins / months
-		return fmt.Sprintf("%d years", y)
+		return strconv.Itoa(mins/months) + " years"
 	}
 }
 
@@ -243,25 +252,32 @@ func lessMin(secs int, seconds bool) string {
 	if seconds {
 		return lessMinAsSec(secs)
 	}
+
 	const minute = 60
 	if secs < minute {
 		return "less than a minute"
 	}
+
 	return "1 minute"
 }
 
 // lessMinAsSec returns a string describing the time difference in seconds.
 func lessMinAsSec(secs int) string {
 	const five, ten, twenty, forty = 5, 10, 20, 40
+
 	switch {
 	case secs < five:
 		return "less than 5 seconds"
+
 	case secs < ten:
 		return "less than 10 seconds"
+
 	case secs < twenty:
 		return "less than 20 seconds"
+
 	case secs < forty:
 		return "half a minute"
+
 	default:
 		return "1 minute"
 	}
@@ -270,16 +286,20 @@ func lessMinAsSec(secs int) string {
 // lessHours returns a string describing the time difference in hours.
 func lessHours(mins, hrs int) string {
 	const parthour, abouthour = 45, 90
+
 	switch {
 	case mins < parthour:
-		return fmt.Sprintf("%d minutes", mins)
+		return strconv.Itoa(mins) + " minutes"
+
 	case mins < abouthour:
 		return "about 1 hour"
+
 	default:
 		if hrs == 0 {
 			hrs = 1
 		}
-		return fmt.Sprintf("about %d hours", hrs)
+
+		return "about " + strconv.Itoa(hrs) + " hours"
 	}
 }
 
@@ -289,12 +309,14 @@ func lessDays(mins, hrs int) string {
 	if mins < day {
 		return "1 day"
 	}
+
 	const hours = 24
 	d := hrs / hours
 	if d == 0 {
 		d = 1
 	}
-	return fmt.Sprintf("%d days", d)
+
+	return strconv.Itoa(d) + " days"
 }
 
 // lessMonths returns a string describing the time difference in months.
@@ -303,19 +325,21 @@ func lessMonths(mins, hrs int) string {
 	if mins < month {
 		return "about 1 month"
 	}
+
 	const hours = 730
 	m := hrs / hours
 	if m == 0 {
 		m = 1
 	}
-	return fmt.Sprintf("%d months", m)
+
+	return strconv.Itoa(m) + " months"
 }
 
 // Year returns true if the i value is between 1970 and (inclusive of) the current year.
 func Year(i int) bool {
 	const unix = 1970
-	now := time.Now().Year()
-	return i >= unix && i <= now
+
+	return i >= unix && i <= time.Now().Year()
 }
 
 // LoggerKey is unused.

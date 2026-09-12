@@ -1,3 +1,4 @@
+//nolint:cyclop,nonamedreturns
 package helper
 
 // Package os contains helper functions for file system operations.
@@ -43,11 +44,13 @@ type Extension struct {
 // CountExts returns the file extensions and the number of files in the given directory.
 func CountExts(dir string) ([]Extension, error) {
 	exts := make(map[string]int64)
+
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		const format = "count extensions read directory: %w"
 		return nil, fmt.Errorf(format, err)
 	}
+
 	for _, file := range files {
 		if file.IsDir() {
 			continue
@@ -58,6 +61,7 @@ func CountExts(dir string) ([]Extension, error) {
 		ext := strings.ToLower(filepath.Ext(file.Name()))
 		exts[ext]++
 	}
+
 	extensions := make([]Extension, 0, len(exts))
 	for k, v := range exts {
 		if k == "" {
@@ -65,20 +69,22 @@ func CountExts(dir string) ([]Extension, error) {
 		}
 		extensions = append(extensions, Extension{Name: k, Count: v})
 	}
+
 	sort.Slice(extensions, func(i, j int) bool {
 		if extensions[i].Count == extensions[j].Count {
 			return extensions[i].Name < extensions[j].Name
 		}
 		return extensions[i].Count > extensions[j].Count
 	})
+
 	return extensions, nil
 }
 
 // Count returns the number of files in the given directory.
 func Count(dir string) (int, error) {
-	const format = "count directory files %s %w"
 	entries, err := os.ReadDir(dir)
 	if err != nil {
+		const format = "count directory files %s %w"
 		return 0, fmt.Errorf(format, dir, err)
 	}
 
@@ -101,9 +107,9 @@ func skipCount(entry os.DirEntry) bool {
 // It is more memory efficient with directories containing many items (10,000+)
 // however, it is slightly slower.
 func CountStream(dir string) (int, error) {
-	const format = "steam count directory files %s %w"
 	f, err := os.Open(dir)
 	if err != nil {
+		const format = "steam count directory files %s %w"
 		return 0, fmt.Errorf(format, dir, err)
 	}
 	defer f.Close()
@@ -173,9 +179,7 @@ func DuplicateOW(oldpath, newpath string) (int64, error) {
 	return duplicate(oldpath, newpath, createTruncate)
 }
 
-func duplicate(oldpath, newpath string, flag int) ( //nolint:nonamedreturns
-	written int64, err error,
-) {
+func duplicate(oldpath, newpath string, flag int) (written int64, err error) {
 	const format = "duplicate %s %w"
 	src, err := os.Open(oldpath)
 	if err != nil {
@@ -188,10 +192,14 @@ func duplicate(oldpath, newpath string, flag int) ( //nolint:nonamedreturns
 		return 0, fmt.Errorf(format, "create", err)
 	}
 	defer func() {
+		if syncErr := dst.Sync(); syncErr != nil && err == nil {
+			err = fmt.Errorf(format, "sync", syncErr)
+		}
 		if cErr := dst.Close(); cErr != nil {
 			err = errors.Join(err, fmt.Errorf(format, "close", cErr))
 		}
 	}()
+
 	n, err := io.Copy(dst, src)
 	if err != nil {
 		return 0, fmt.Errorf(format, "copy buffer", err)
@@ -213,9 +221,7 @@ func DuplicaterOW(r *os.Root, name, newname string) (int64, error) {
 	return duplicater(r, name, newname, createTruncate)
 }
 
-func duplicater(r *os.Root, name, newname string, flag int) ( //nolint:nonamedreturns
-	written int64, err error,
-) {
+func duplicater(r *os.Root, name, newname string, flag int) (written int64, err error) {
 	const format = "duplicater %s %w"
 	src, err := r.Open(name)
 	if err != nil {
@@ -228,10 +234,14 @@ func duplicater(r *os.Root, name, newname string, flag int) ( //nolint:nonamedre
 		return 0, fmt.Errorf(format, "create", err)
 	}
 	defer func() {
+		if syncErr := dst.Sync(); syncErr != nil && err == nil {
+			err = fmt.Errorf(format, "sync", syncErr)
+		}
 		if cErr := dst.Close(); cErr != nil {
 			err = errors.Join(err, fmt.Errorf(format, "close", cErr))
 		}
 	}()
+
 	n, err := io.Copy(dst, src)
 	if err != nil {
 		return 0, fmt.Errorf(format, "copy buffer", err)
@@ -262,22 +272,22 @@ func Files(dir string) ([]string, error) {
 		return nil, fmt.Errorf(format, "stat", err)
 	}
 	if !st.IsDir() {
-		return nil, fmt.Errorf("%w: %s", ErrDirPath, dir)
+		return nil, fmt.Errorf(format, dir, ErrDirPath)
 	}
-	files, err := os.ReadDir(dir)
+
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf(format, "readdir", err)
 	}
-	names := []string{}
-	for _, file := range files {
-		if file.IsDir() {
+
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Name() == DSStore {
 			continue
 		}
-		if file.Name() == DSStore {
-			continue
-		}
-		names = append(names, file.Name())
+		names = append(names, entry.Name())
 	}
+
 	return names, nil
 }
 
@@ -287,6 +297,7 @@ func Files(dir string) ([]string, error) {
 // The read buffer size is 4096 bytes.
 func FileMatch(name1, name2 string) (bool, error) {
 	const format = "file match open %s: %w"
+
 	f1, err := os.Open(name1)
 	if err != nil {
 		return false, fmt.Errorf(format, name1, err)
@@ -334,11 +345,13 @@ func infoMatch(f1, f2 *os.File) (bool, bool, error) {
 // The read buffer size is 4096 bytes.
 func FileMatchR(r *os.Root, name1, name2 string) (bool, error) {
 	const format = "file match open %s: %w"
+
 	f1, err := r.Open(name1)
 	if err != nil {
 		return false, fmt.Errorf(format, name1, err)
 	}
 	defer f1.Close()
+
 	f2, err := r.Open(name2)
 	if err != nil {
 		return false, fmt.Errorf(format, name2, err)
@@ -354,12 +367,12 @@ func FileMatchR(r *os.Root, name1, name2 string) (bool, error) {
 
 // ReaderMatch returns true if the content of the two readers are the same.
 // The read buffer size is 4096 bytes.
-func ReaderMatch(r1, r2 io.Reader) (bool, error) { //nolint:cyclop
-	const format = "file match chunk: %w"
+func ReaderMatch(r1, r2 io.Reader) (bool, error) {
 	const bufSize = 4096
 	buf1 := make([]byte, bufSize)
 	buf2 := make([]byte, bufSize)
 
+	const format = "file match chunk: %w"
 	for {
 		n1, err1 := io.ReadFull(r1, buf1)
 		n2, err2 := io.ReadFull(r2, buf2)
@@ -505,7 +518,7 @@ func MkContent(src string) (string, error) {
 
 // Owner returns the running user and group of the web application.
 // The function returns the group names and the username of the owner.
-func Owner() (groups []string, username string, err error) { //nolint:nonamedreturns
+func Owner() (groups []string, username string, err error) {
 	const format = "owner %s: %w"
 	curr, err := user.Current()
 	if err != nil {
@@ -528,9 +541,10 @@ func Owner() (groups []string, username string, err error) { //nolint:nonamedret
 
 		if grp.Name != "" {
 			s = append(s, grp.Name)
-		} else {
-			s = append(s, grp.Gid)
+			continue
 		}
+
+		s = append(s, grp.Gid)
 	}
 
 	return s, curr.Username, nil
@@ -549,12 +563,14 @@ func RenameFile(oldpath, newpath string) error {
 	if st.IsDir() {
 		return fmt.Errorf(format, "is dir", oldpath, ErrFilePath)
 	}
+
 	// check new path
 	if _, err := os.Stat(newpath); err == nil {
 		return fmt.Errorf(format, "newpath", newpath, ErrExistPath)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf(format, "stat", newpath, err)
 	}
+
 	// rename paths
 	err = os.Rename(oldpath, newpath)
 	if err != nil {
@@ -587,6 +603,7 @@ func RenameFileOW(oldpath, newpath string) error {
 			return fmt.Errorf(format, newpath, rErr)
 		}
 	}
+
 	return RenameFile(oldpath, newpath)
 }
 
@@ -653,6 +670,7 @@ func RenameCrossDevice(oldpath, newpath string) error {
 // or if oldname is a directory, or newname already exists, or the rename fails.
 func RenameRoot(r *os.Root, oldname, newname string) error {
 	const format = "rename file %s %s: %w"
+
 	// check old path
 	st, err := r.Stat(oldname)
 	if err != nil {
@@ -661,12 +679,14 @@ func RenameRoot(r *os.Root, oldname, newname string) error {
 	if st.IsDir() {
 		return fmt.Errorf(format, "is dir", oldname, ErrFilePath)
 	}
+
 	// check new path
 	if _, err = r.Stat(newname); err == nil {
 		return fmt.Errorf(format, "newname", newname, ErrExistPath)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf(format, "stat", newname, err)
 	}
+
 	// rename files within the limitations of root
 	if err := r.Rename(oldname, newname); err != nil {
 		return fmt.Errorf(format, "rename to", newname, err)
@@ -729,6 +749,7 @@ func SortNames(sep string, names []string) []string {
 		// else, use more memory to sort lexicographically
 		return cmp.Compare(strings.ToLower(a), strings.ToLower(b))
 	})
+
 	return names
 }
 
@@ -814,7 +835,7 @@ func TouchR(r *os.Root, name string) error {
 
 // TouchW creates a new named file with the given data.
 // If the file already exists, an error is returned.
-func TouchW(name string, data ...byte) (written int, err error) { //nolint:nonamedreturns
+func TouchW(name string, data ...byte) (written int, err error) {
 	const flag = os.O_CREATE | os.O_EXCL | os.O_WRONLY
 	const format = "touch file %s: %w"
 
@@ -832,9 +853,7 @@ func TouchW(name string, data ...byte) (written int, err error) { //nolint:nonam
 
 // TouchWR creates a new named file with the given data.
 // If the file already exists, an error is returned.
-func TouchWR(r *os.Root, name string, data ...byte) ( //nolint:nonamedreturns
-	written int, err error,
-) {
+func TouchWR(r *os.Root, name string, data ...byte) (written int, err error) {
 	const flag = os.O_CREATE | os.O_EXCL | os.O_WRONLY
 	const format = "touch file %s: %w"
 
@@ -847,6 +866,7 @@ func TouchWR(r *os.Root, name string, data ...byte) ( //nolint:nonamedreturns
 			err = errors.Join(err, fmt.Errorf(format, "close", cErr))
 		}
 	}()
+
 	return touch(file, data...)
 }
 
@@ -863,6 +883,7 @@ func touch(file *os.File, data ...byte) (int, error) {
 	if err := file.Sync(); err != nil {
 		return n, fmt.Errorf(format, "sync", err)
 	}
+
 	return n, nil
 }
 
