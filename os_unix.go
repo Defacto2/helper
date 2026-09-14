@@ -1,4 +1,4 @@
-//go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris || zos
+//go:build darwin || dragonfly || freebsd || netbsd || openbsd
 
 //nolint:nonamedreturns
 package helper
@@ -28,12 +28,7 @@ func DiskStat(path string) (
 		return 0, 0, 0, "", fmt.Errorf("unix stat fs: %w", err)
 	}
 
-	// Use fragment size (Frsize) for accurate block allocation math
-	bsize := float64(stat.Frsize)
-	if bsize == 0 {
-		bsize = float64(stat.Bsize) // fallback if Frsize is not reported
-	}
-
+	bsize := float64(stat.Bsize)
 	total = float64(stat.Blocks) * bsize
 	free = float64(stat.Bavail) * bsize
 
