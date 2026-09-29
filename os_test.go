@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/Defacto2/helper"
@@ -295,16 +294,9 @@ func TestOwner(t *testing.T) {
 func TestTmpDir_Touch(t *testing.T) {
 	t.Parallel()
 
-	dir := helper.TmpDir()
-	t.Cleanup(func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Logf("could not remove dir %s: %v", dir, err)
-		}
-	})
-
 	// confirm we can write a file to the new tmp dir
 	data := []byte(testdataBMP384)
-	name := filepath.Join(dir, "TEST.DATA")
+	name := filepath.Join(t.TempDir(), "TEST.DATA")
 	n, err := helper.TouchW(name, data...)
 	be.Err(t, err, nil)
 	be.Equal(t, n, len(testdataBMP384))
@@ -316,34 +308,6 @@ func TestTmpDir_Touch(t *testing.T) {
 
 	// also test the touch func to confirm it returns an error
 	be.Err(t, helper.Touch(name))
-}
-
-func TestMkContent(t *testing.T) {
-	t.Parallel()
-
-	dir, err := helper.MkContent("")
-	be.Err(t, err)
-	be.Equal(t, dir, "")
-
-	dir, err = helper.MkContent("..")
-	be.Err(t, err)
-	be.Equal(t, dir, "")
-
-	dir, err = helper.MkContent("TEST.DATA")
-	if err != nil && errors.Is(err, os.ErrNotExist) {
-		t.Log("occasionally running sequential tests will cause this to fail")
-		t.Cleanup(func() { cleanup(t, dir) })
-		return
-	}
-
-	be.Err(t, err, nil)
-	be.True(t, strings.Contains(dir, helper.TempBase))
-	be.True(t, strings.Contains(dir, "test.data"))
-	be.True(t, strings.Contains(dir, "artifact-content"))
-
-	if dir != "" {
-		t.Cleanup(func() { cleanup(t, dir) })
-	}
 }
 
 func TestFileMatch(t *testing.T) {

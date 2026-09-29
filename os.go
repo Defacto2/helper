@@ -24,8 +24,7 @@ import (
 )
 
 const (
-	DSStore  = ".DS_Store"       // DSStore is the macOS directory service store file.
-	TempBase = "defacto2-server" // TempBase is the base subdirectory for temporary files.
+	DSStore = ".DS_Store" // DSStore is the macOS directory service store file.
 )
 
 const (
@@ -489,31 +488,10 @@ func CountLines(r io.Reader) (int, error) {
 
 // MkContent returns the destination directory for the extracted archive content.
 // The directory is created if it does not exist. The directory is named after the source file.
-func MkContent(src string) (string, error) {
-	const format = "make content %s: %w"
-
-	if !filepath.IsLocal(src) {
-		return "", fmt.Errorf(format, "invalid path "+src, filepath.ErrBadPattern)
-	}
-
-	base := filepath.Base(src)
-	base = strings.TrimSpace(strings.ToLower(base))
-	pattern := "artifact-content-" + base
-	dst := filepath.Join(TmpDir(), pattern)
-
-	if err := os.MkdirAll(dst, DirWriteReadRead); err != nil {
-		return "", fmt.Errorf(format, "mkdir all", err)
-	}
-
-	st, err := os.Stat(dst)
-	if err != nil {
-		return "", fmt.Errorf(format, "stat", err)
-	}
-	if !st.IsDir() {
-		return "", fmt.Errorf(format, dst, ErrNoDir)
-	}
-
-	return dst, nil
+//
+// Deprecated: Removed due to conflicting patterns with temp directories.
+func MkContent(_ string) (string, error) {
+	return "", nil
 }
 
 // Owner returns the running user and group of the web application.
@@ -811,12 +789,10 @@ func Sum386(f *os.File) (string, error) {
 
 // TmpDir returns the temporary directory for the server,
 // which is a subdirectory of the system temp directory.
+//
+// Deprecated: Removed due to conflicting patterns with temp directories.
 func TmpDir() string {
-	path := filepath.Join(os.TempDir(), TempBase)
-	if err := os.MkdirAll(path, DirWriteReadRead); err != nil {
-		return os.TempDir()
-	}
-	return path
+	return ""
 }
 
 // Touch creates a new, empty named file.

@@ -51,7 +51,6 @@ var (
 	ErrFilePath   = errors.New("file path is a directory")
 	ErrKey        = errors.New("could not generate a random session key")
 	ErrOSFile     = errors.New("os file is nil")
-	ErrNoDir      = errors.New("not a directory")
 	ErrRead       = errors.New("could not read files")
 )
 

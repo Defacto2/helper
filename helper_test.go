@@ -74,15 +74,6 @@ func createCombo(tb testing.TB) (size int, dir, src, dst string) {
 	return
 }
 
-// cleanup removes the path and its content and logs any errors.
-func cleanup(tb testing.TB, path string) {
-	tb.Helper()
-
-	if err := os.RemoveAll(path); err != nil {
-		tb.Logf("could not remove the path %s: %v", path, err)
-	}
-}
-
 func TestCookieStore(t *testing.T) {
 	t.Parallel()
 	b, err := helper.CookieStore("")
